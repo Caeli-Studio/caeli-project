@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Pre-push checks starting..."
+
+# Check if we're pushing to protected branches
+protected_branches="main master develop"
+current_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+
+for branch in $protected_branches; do
+  if [ "$current_branch" = "$branch" ]; then
+    echo "⚠️  You're about to push to protected branch '$branch'."
+    echo "   Make sure this is intentional and all checks have passed."
+
+    # Optional: Uncomment to require confirmation
+    # read -p "Are you sure you want to push to $branch? (y/N) " -n 1 -r
+    # echo
+    # if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    #   echo "❌ Push cancelled."
+    #   exit 1
+    # fi
+    break
+  fi
+done
+
+# Run full build to ensure everything compiles
+echo "🔨 Running full build..."
+npm run build
+
+if [ $? -ne 0 ]; then
+  echo "❌ Build failed. Push cancelled."
+  exit 1
+fi
+
+# Run all linting
+echo "🔍 Running full lint check..."
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ Linting failed. Push cancelled."
+  exit 1
+fi
+
+echo "✅ Pre-push checks completed successfully!"

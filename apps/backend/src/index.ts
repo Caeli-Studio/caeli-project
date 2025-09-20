@@ -47,7 +47,7 @@ fastify.get('/api/users/:id', async (request) => {
 // Start server
 const start = async (): Promise<void> => {
   try {
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    const port = parseInt(process.env.PORT || '3000', 10) || 3000;
     const host = process.env.HOST || '0.0.0.0';
 
     await fastify.listen({ port, host });

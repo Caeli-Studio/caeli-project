@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.turbo
+coverage
+*.min.js
+apps/mobile/android
+apps/mobile/ios
+.git
+.next
+.expo
+*.log
+*.tgz
+*.tar.gz

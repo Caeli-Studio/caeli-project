@@ -1,0 +1,30 @@
+{
+  "autoAdd": false,
+  "emojiFormat": "emoji",
+  "scopePrompt": true,
+  "messagePrompt": true,
+  "capitalizeTitle": false,
+  "gitmojisUrl": "https://gitmojis.dev/gitmojis.json",
+  "scopes": [
+    "backend",
+    "mobile",
+    "shared",
+    "auth",
+    "api",
+    "ui",
+    "navigation",
+    "database",
+    "config",
+    "build",
+    "ci",
+    "docs",
+    "deps",
+    "release",
+    "lint",
+    "format",
+    "test",
+    "perf",
+    "security",
+    "a11y"
+  ]
+}

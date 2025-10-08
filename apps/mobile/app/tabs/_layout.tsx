@@ -9,22 +9,27 @@ export default function Layout() {
         tabBarActiveTintColor: '#C5BD83',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: { backgroundColor: '#fff' },
+        headerShown: false,
       }}
     >
-      <Tabs.Screen
+
+    <Tabs.Screen
+      name="organisation"
+      options={{
+        title: 'organisation',
+        tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
+      }}
+    />
+
+    <Tabs.Screen
         name="home"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
-        }}
-      />
+
+
     </Tabs>
   );
 }

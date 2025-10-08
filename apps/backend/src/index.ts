@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import Fastify from 'fastify';

@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
   customLogger.info('Registering routes...');
 
-  // API v1 routes
+  // API routes
   await app.register(
     async (api) => {
       // Health check routes
@@ -22,7 +22,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       await api.register(userRoutes, { prefix: '/users' });
 
       // Add more route modules here as you build them
-      // await api.register(authRoutes, { prefix: '/auth' });
       // await api.register(productRoutes, { prefix: '/products' });
     },
     { prefix: '/api' }

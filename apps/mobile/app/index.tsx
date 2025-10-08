@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Text, View, StyleSheet, TextInput, TouchableOpacity, BackHandler } from 'react-native';
-
+import { Text, View, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 
 export default function Index() {
 
   const [inputValue, setInputValue] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter(); 
 
   return (
     <View style={styles.container}>
@@ -26,11 +27,9 @@ export default function Index() {
             style={{ height: 40, backgroundColor: 'white', borderWidth: 0, borderRadius : 10, width : 300, marginTop : 20 }}
           />
 
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('tabs/home')}>
             <Text style = {styles.bouton_connexion}>connexion</Text>
           </TouchableOpacity>
-
-
 
     </View>
   );

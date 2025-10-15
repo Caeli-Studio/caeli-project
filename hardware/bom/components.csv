@@ -1,0 +1,10 @@
+Category,Name,MPN/Ref,Qty,Function,Interface,Voltage(V),Current(mA),Notes,Alt 1,Alt 2,Unit Cost(EUR),Supplier
+Controller,Raspberry Pi 4 Model B 4GB,RPI4-MODBP-4GB,1,Ordinateur embarqué,HDMI/USB/GPIO,5,900,Wi-Fi BT micro-HDMI x2,Raspberry Pi 5 8GB,Raspberry Pi 4 8GB,75,Official
+Power,Alim officielle 5V 3A,SC0218,1,Alimentation principale,USB-C,5,3000,Marge suffisante écran,Alim 5V 4A,USB PD 5V,12,Distributors
+Storage,Carte microSD 32GB A1,MicroSD-32G-A1,1,Stockage OS,-,3.3,,Endurance recommandée,64GB A2,32GB Endurance,7,Any
+Display,Écran HDMI tactile 7\" 1024x600,Waveshare-7in-Cap,1,Affichage + tactile,HDMI+USB,5,800,USB pour tactile,Écran 10.1\" HDMI,Seeed 7\",60,Waveshare
+Sensor,Module PIR HC-SR501,HC-SR501,1,Détection mouvement,GPIO digital,5,60,Sortie 3.3V OK Pi,AM312,SR602,1.5,Generic
+Cable,Câble micro-HDMI -> HDMI,MicroHDMI-HDMI-1m,1,Liaison vidéo,HDMI,,,Compat Pi 4/5,Adaptateur micro-HDMI,HDMI court,6,Any
+Accessory,Entretoises/vis M2.5,Standoff-M2.5-Kit,1,Fixation,-,,,Montage mécanique,,,5,Any
+Wiring,Jeu fils Dupont M/F,DuPont-Kit,1,Prototypage,-,,,Pour capteurs,,,6,Any
+Protection,Condensateur 100nF 50V,C0603-100nF,2,Filtrage PIR,-,,,Découplage proche Vcc,,,0.05,Any

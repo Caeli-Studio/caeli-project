@@ -127,6 +127,15 @@ export default [
       // Mobile/React Native specific rules
       'react-native/no-unused-styles': 'error',
       'react-native/split-platform-components': 'error',
+      // Allow require for React Native assets (images, etc.)
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    rules: {
+      // Allow require in JS config files
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

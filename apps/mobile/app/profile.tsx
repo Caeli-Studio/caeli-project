@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import Navbar from "@/components/navbar";
 
 const Profile = () => {
     return (
@@ -12,6 +13,8 @@ const Profile = () => {
             <TouchableOpacity>
                 <Text>se Déconnecter</Text>
             </TouchableOpacity>
+
+            <Navbar />
         </View>
     );
 };

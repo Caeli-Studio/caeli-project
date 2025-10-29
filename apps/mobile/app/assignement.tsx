@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Navbar from "@/components/navbar";
 
@@ -7,23 +7,29 @@ const { width } = Dimensions.get('window');
 
 const Organisation = () => {
     const [activePage, setActivePage] = useState(0);
-    const [scannerVisible, setScannerVisible] = useState(false); // pour afficher le scanner
+    const [taskName, setTaskName] = useState('');
+    const [taskDescription, setTaskDescription] = useState('');
 
     const pages = [
-        {
-            text: "vous n’appartenez à aucune organisation ...\n\ncréer une organisation\nen cliquant ci-dessous",
-            icon: <MaterialIcons name="add-circle" size={60} color="#FFF" />,
-        },
-        {
-            text: "Ou rejoignez en une",
-            icon: <MaterialIcons name="photo-camera" size={60} color="#FFF" />,
-        },
+        { text: "Vous n'avez aucune tâche de prévue pour le moment" },
+        { text: "Nouvelle tâche" },
     ];
 
     const handleScroll = (event: any) => {
         const pageIndex = Math.round(event.nativeEvent.contentOffset.x / (width * 0.8));
         setActivePage(pageIndex);
     };
+
+    const handleAddTask = () => {
+        if (!taskName.trim()) {
+            Alert.alert("Erreur", "Veuillez entrer le nom de la tâche.");
+            return;
+        }
+        Alert.alert("Tâche ajoutée", `Nom: ${taskName}\nDescription: ${taskDescription}`);
+        setTaskName('');
+        setTaskDescription('');
+    };
+
 
     return (
         <View style={styles.container}>
@@ -52,17 +58,28 @@ const Organisation = () => {
                         {pages.map((page, index) => (
                             <View style={styles.innerContent} key={index}>
                                 <Text style={styles.message}>{page.text}</Text>
-                                {index === 1 ? (
-                                    <TouchableOpacity
-                                        style={styles.buttonCamera}
-                                        onPress={() => setScannerVisible(true)} // ouvre le scanner
-                                    >
-                                        {page.icon}
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity style={styles.buttonCamera}>
-                                        {page.icon}
-                                    </TouchableOpacity>
+
+                                {index === 1 && (
+                                    <>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Nom de la tâche"
+                                            value={taskName}
+                                            onChangeText={setTaskName}
+                                        />
+
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Déscription de la tâche ..."
+                                            value={taskDescription}          // <-- ici
+                                            onChangeText={setTaskDescription} // <-- et ici
+                                        />
+
+
+                                        <TouchableOpacity style={styles.buttonAdd} onPress={handleAddTask}>
+                                            <Text style={styles.buttonText}>Ajouter la tâche</Text>
+                                        </TouchableOpacity>
+                                    </>
                                 )}
                             </View>
                         ))}
@@ -84,7 +101,6 @@ const Organisation = () => {
             </View>
 
             <Navbar />
-
         </View>
     );
 };
@@ -117,7 +133,7 @@ const styles = StyleSheet.create({
     },
 
     innerContent: {
-        width: width * 0.8,
+        width: width * 0.82,
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
@@ -129,6 +145,28 @@ const styles = StyleSheet.create({
         color: '#898989',
         textAlign: 'center',
         marginBottom: 12,
+    },
+
+    input: {
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#ccc',
+        padding: 10,
+        borderRadius: 5,
+        marginBottom: 10,
+        backgroundColor: '#fff',
+    },
+
+    buttonAdd: {
+        backgroundColor: '#898989',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 6,
+    },
+
+    buttonText: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 
     dotContainer: {
@@ -147,13 +185,6 @@ const styles = StyleSheet.create({
 
     activeDot: {
         backgroundColor: '#898989',
-    },
-
-    buttonCamera: {
-        backgroundColor: '#898989',
-        paddingHorizontal: 40,
-        paddingVertical: 10,
-        borderRadius: 6,
     },
 });
 

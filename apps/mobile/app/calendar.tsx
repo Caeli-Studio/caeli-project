@@ -3,6 +3,9 @@ import { View, StyleSheet, Dimensions, Modal, Text, TouchableOpacity, TouchableW
 import { Calendar } from 'react-native-calendars';
 import Navbar from "@/components/navbar";
 import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
+
 
 const { width } = Dimensions.get('window');
 
@@ -10,10 +13,25 @@ const MyCalendar: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
 
+    const navigation = useNavigation();
+
     const handleDayPress = (day: any) => {
         setSelectedDate(day.dateString);
         setModalVisible(true);
     };
+
+    const handleAddPress = () => {
+        setModalVisible(false);
+        navigation.navigate('assignement', { page : 1, selectedDate});
+    };
+
+    const route = useRoute();
+
+    React.useEffect(() => {
+        if (route.params?.page === 1) {
+            setActivePage(1);
+        }
+    }, [route.params]);
 
     return (
         <View style={styles.container}>
@@ -40,7 +58,7 @@ const MyCalendar: React.FC = () => {
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalDate}>{selectedDate}</Text>
                                 <Text style={styles.modalText}>Aucune tâche de prévue ...</Text>
-                                <TouchableOpacity>
+                                <TouchableOpacity onPress={handleAddPress}>
                                     <MaterialIcons name="add-circle" size={60} color="#FFF" />
                                 </TouchableOpacity>
                                 {/* Bouton Fermer optionnel */}

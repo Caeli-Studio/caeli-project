@@ -33,7 +33,7 @@ export function SignInForm() {
     <View className="gap-6">
       <Card className="border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5">
         <CardHeader>
-          <CardTitle className="text-center text-xl sm:text-left">Sign in to your app</CardTitle>
+          <CardTitle className="text-center text-xl sm:text-left">Connectez-vous à votre compte</CardTitle>
           <CardDescription className="text-center sm:text-left">
             Welcome back! Please sign in to continue
           </CardDescription>
@@ -63,7 +63,7 @@ export function SignInForm() {
                   onPress={() => {
                     // TODO: Navigate to forgot password screen
                   }}>
-                  <Text className="font-normal leading-4">Forgot your password?</Text>
+                  <Text className="font-normal leading-4">Mot de passe oublié ?</Text>
                 </Button>
               </View>
               <Input

@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import Fastify from 'fastify';
 
+import { registerSupabase } from './config/supabase';
 import { registerRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './utils/errors';
 import { createLoggerConfig, customLogger } from './utils/logger';
@@ -44,6 +45,9 @@ async function setupMiddleware(app: ReturnType<typeof createApp>) {
 
   // Sensible plugin for useful utilities
   await app.register(sensible);
+
+  // Register Supabase plugin
+  await registerSupabase(app);
 
   // Custom error handler
   app.setErrorHandler(errorHandler);

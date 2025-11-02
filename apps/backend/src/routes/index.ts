@@ -1,7 +1,15 @@
 import { customLogger } from '../utils/logger';
 
+import authRoutes from './auth.routes';
+import groupRoutes from './group.routes';
 import { healthRoutes } from './health';
-import { userRoutes } from './user.routes';
+import hubRoutes from './hub.routes';
+import membershipRoutes from './membership.routes';
+import notificationRoutes from './notification.routes';
+import profileRoutes from './profile.routes';
+import supabaseHealthRoutes from './supabase-health.routes';
+import taskRoutes from './task.routes';
+import transferRoutes from './transfer.routes';
 
 import type { FastifyInstance } from 'fastify';
 
@@ -18,11 +26,42 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       // Health check routes
       await api.register(healthRoutes, { prefix: '/health' });
 
-      // User routes (MVC pattern)
-      await api.register(userRoutes, { prefix: '/users' });
+      // Supabase health check routes
+      await api.register(supabaseHealthRoutes, { prefix: '/health' });
 
-      // Add more route modules here as you build them
-      // await api.register(productRoutes, { prefix: '/products' });
+      // Authentication routes (Google OAuth)
+      await api.register(authRoutes, { prefix: '/auth' });
+
+      // Profile routes
+      await api.register(profileRoutes, { prefix: '/profile' });
+
+      // Group routes
+      await api.register(groupRoutes, { prefix: '/groups' });
+
+      // Notification routes
+      await api.register(notificationRoutes, { prefix: '/notifications' });
+
+      // Group-scoped routes
+      await api.register(
+        async (groupApi) => {
+          // Task routes
+          await groupApi.register(taskRoutes, { prefix: '/:group_id/tasks' });
+
+          // Member routes
+          await groupApi.register(membershipRoutes, {
+            prefix: '/:group_id/members',
+          });
+
+          // Transfer routes
+          await groupApi.register(transferRoutes, {
+            prefix: '/:group_id/transfers',
+          });
+
+          // Hub/Monitor routes
+          await groupApi.register(hubRoutes, { prefix: '/:group_id/hub' });
+        },
+        { prefix: '/groups' }
+      );
     },
     { prefix: '/api' }
   );

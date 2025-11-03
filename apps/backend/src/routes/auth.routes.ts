@@ -24,8 +24,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/google', {
     schema: {
-      description: 'Initiate Google OAuth sign-in',
-      tags: ['auth'],
+      tags: ['Authentication'],
+      summary: 'Initiate Google OAuth',
+      description:
+        'Initiates Google OAuth sign-in flow and returns the authorization URL',
       body: {
         type: 'object',
         properties: {
@@ -34,6 +36,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: {
+          description: 'OAuth URL generated successfully',
           type: 'object',
           properties: {
             success: { type: 'boolean' },
@@ -55,14 +58,27 @@ export default async function authRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/callback', {
     schema: {
-      description: 'Handle OAuth callback from Google',
-      tags: ['auth'],
+      tags: ['Authentication'],
+      summary: 'OAuth callback',
+      description:
+        'Handles OAuth callback from Google with authorization code or error',
       querystring: {
         type: 'object',
         properties: {
           code: { type: 'string' },
           error: { type: 'string' },
           error_description: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          description: 'Authentication successful',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            session: { type: 'object' },
+            user: { type: 'object' },
+          },
         },
       },
     },
@@ -78,13 +94,18 @@ export default async function authRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/signout', {
     schema: {
-      description: 'Sign out the current user',
-      tags: ['auth'],
-      headers: {
-        type: 'object',
-        required: ['authorization'],
-        properties: {
-          authorization: { type: 'string' },
+      tags: ['Authentication'],
+      summary: 'Sign out',
+      description: 'Signs out the current user and invalidates the session',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'Signed out successfully',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+          },
         },
       },
     },
@@ -101,13 +122,18 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/session', {
     onRequest: [verifyJWT],
     schema: {
-      description: 'Get current user session',
-      tags: ['auth'],
-      headers: {
-        type: 'object',
-        required: ['authorization'],
-        properties: {
-          authorization: { type: 'string' },
+      tags: ['Authentication'],
+      summary: 'Get session',
+      description: 'Retrieves the current user session information',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'Session retrieved successfully',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            user: { type: 'object' },
+          },
         },
       },
     },
@@ -123,13 +149,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/refresh', {
     schema: {
-      description: 'Refresh user session',
-      tags: ['auth'],
+      tags: ['Authentication'],
+      summary: 'Refresh session',
+      description: 'Refreshes the user session using a refresh token',
       body: {
         type: 'object',
         required: ['refresh_token'],
         properties: {
           refresh_token: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          description: 'Session refreshed successfully',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            session: { type: 'object' },
+            user: { type: 'object' },
+          },
         },
       },
     },

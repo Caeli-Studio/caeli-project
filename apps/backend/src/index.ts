@@ -2,9 +2,12 @@ import 'dotenv/config';
 
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import Fastify from 'fastify';
 
 import { registerSupabase } from './config/supabase';
+import { swaggerOptions, swaggerUiOptions } from './config/swagger';
 import { registerRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './utils/errors';
 import { createLoggerConfig, customLogger } from './utils/logger';
@@ -46,6 +49,10 @@ async function setupMiddleware(app: ReturnType<typeof createApp>) {
   // Sensible plugin for useful utilities
   await app.register(sensible);
 
+  // Register Swagger/OpenAPI documentation
+  await app.register(swagger, swaggerOptions);
+  await app.register(swaggerUi, swaggerUiOptions);
+
   // Register Supabase plugin
   await registerSupabase(app);
 
@@ -78,6 +85,11 @@ async function start() {
 
     // Log server info
     customLogger.serverStart(PORT, HOST, NODE_ENV);
+
+    // Log Swagger documentation URL
+    customLogger.success(
+      `📚 API Documentation: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/docs`
+    );
 
     // Graceful shutdown handlers
     const signals = ['SIGINT', 'SIGTERM'] as const;

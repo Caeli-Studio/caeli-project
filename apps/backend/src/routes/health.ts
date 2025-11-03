@@ -67,13 +67,82 @@ async function readinessHandler(
  */
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
   // Main health check endpoint
-  app.get('/', healthCheckHandler);
+  app.get('/', {
+    handler: healthCheckHandler,
+    schema: {
+      tags: ['Health'],
+      summary: 'Health check',
+      description: 'Returns service health status and system information',
+      response: {
+        200: {
+          description: 'Service is healthy',
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            timestamp: { type: 'string', format: 'date-time' },
+            uptime: { type: 'number' },
+            environment: { type: 'string' },
+            version: { type: 'string' },
+            memory: {
+              type: 'object',
+              properties: {
+                used: { type: 'number' },
+                total: { type: 'number' },
+                unit: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 
   // Kubernetes-style liveness probe
-  app.get('/live', livenessHandler);
+  app.get('/live', {
+    handler: livenessHandler,
+    schema: {
+      tags: ['Health'],
+      summary: 'Liveness probe',
+      description:
+        'Simple endpoint to check if the service is alive (Kubernetes liveness probe)',
+      response: {
+        200: {
+          description: 'Service is alive',
+          type: 'object',
+          properties: {
+            alive: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  });
 
   // Kubernetes-style readiness probe
-  app.get('/ready', readinessHandler);
+  app.get('/ready', {
+    handler: readinessHandler,
+    schema: {
+      tags: ['Health'],
+      summary: 'Readiness probe',
+      description:
+        'Checks if the service is ready to accept traffic (Kubernetes readiness probe)',
+      response: {
+        200: {
+          description: 'Service is ready',
+          type: 'object',
+          properties: {
+            ready: { type: 'boolean' },
+          },
+        },
+        503: {
+          description: 'Service is not ready',
+          type: 'object',
+          properties: {
+            ready: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  });
 
   customLogger.route('GET', '/api/health');
   customLogger.route('GET', '/api/health/live');

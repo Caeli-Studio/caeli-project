@@ -21,6 +21,7 @@ export async function createGroup(
       .insert({
         name: request.body.name,
         type: request.body.type || 'family',
+        created_by: request.user.sub, // ✅ Ajout de created_by
       })
       .select()
       .single();
@@ -40,8 +41,7 @@ export async function createGroup(
       .insert({
         group_id: group.id,
         user_id: request.user.sub,
-        role_name: 'owner',
-        importance: 100,
+        role: 'owner', // ✅ CORRIGÉ : role au lieu de role_name
       });
 
     if (membershipError) {
@@ -58,7 +58,7 @@ export async function createGroup(
 
     return reply.status(201).send({
       success: true,
-      group,
+      data: group, // ✅ CORRIGÉ : data au lieu de group (pour cohérence avec les tests)
     });
   } catch (err) {
     request.log.error(err, 'Error in createGroup');
@@ -119,7 +119,7 @@ export async function getMyGroups(
 
     return reply.send({
       success: true,
-      groups,
+      data: groups, // ✅ CORRIGÉ : data au lieu de groups
     });
   } catch (err) {
     request.log.error(err, 'Error in getMyGroups');
@@ -174,7 +174,7 @@ export async function getGroup(
 
     return reply.send({
       success: true,
-      group: response,
+      data: response, // ✅ CORRIGÉ : data au lieu de group
     });
   } catch (err) {
     request.log.error(err, 'Error in getGroup');
@@ -219,7 +219,7 @@ export async function updateGroup(
 
     return reply.send({
       success: true,
-      group,
+      data: group, // ✅ CORRIGÉ : data au lieu de group
     });
   } catch (err) {
     request.log.error(err, 'Error in updateGroup');
@@ -283,12 +283,13 @@ export async function leaveGroup(
     }
 
     // Check if user is the only owner
-    if (request.membership.role_name === 'owner') {
+    if (request.membership.role === 'owner') {
+      // ✅ CORRIGÉ
       const { data: owners, error } = await request.supabaseClient
         .from('memberships')
         .select('id')
         .eq('group_id', request.params.group_id)
-        .eq('role_name', 'owner')
+        .eq('role', 'owner') // ✅ CORRIGÉ
         .is('left_at', null);
 
       if (error) {

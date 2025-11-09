@@ -54,7 +54,7 @@ export interface Membership {
   id: string;
   group_id: string;
   user_id: string;
-  role_name: string;
+  role: string;
   importance: number;
   custom_permissions: Record<string, boolean>;
   joined_at: string;

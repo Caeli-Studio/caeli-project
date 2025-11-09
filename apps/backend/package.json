@@ -11,7 +11,16 @@
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:auth": "vitest run tests/auth.test.ts",
+    "test:profile": "vitest run tests/profile.test.ts",
+    "test:group": "vitest run tests/group.test.ts",
+    "test:task": "vitest run tests/task.test.ts",
+    "test:health": "vitest run tests/health.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
@@ -32,8 +41,15 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.19",
+    "@types/supertest": "^6.0.3",
+    "@vitest/ui": "^1.6.0",
+    "c8": "^9.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "supertest": "^7.1.4",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
   }
 }

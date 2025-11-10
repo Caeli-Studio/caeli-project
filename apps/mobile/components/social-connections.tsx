@@ -8,7 +8,7 @@ const SOCIAL_CONNECTION_STRATEGIES = [
     type: 'oauth_google',
     source: { uri: 'https://img.clerk.com/static/google.png?width=160' },
     useTint: false,
-  }
+  },
 ];
 
 export function SocialConnections() {

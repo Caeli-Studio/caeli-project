@@ -40,8 +40,9 @@ export function generateHubCode(length = 8): string {
  * Get permissions for a membership
  */
 export function getMembershipPermissions(membership: Membership): Permission {
-  const basePermissions =
-    DEFAULT_PERMISSIONS[membership.role_name] || DEFAULT_PERMISSIONS.guest;
+  const basePermissions = membership.role_name
+    ? DEFAULT_PERMISSIONS[membership.role_name] || DEFAULT_PERMISSIONS.guest
+    : DEFAULT_PERMISSIONS.guest;
 
   // Merge with custom permissions
   const permissions = { ...basePermissions };

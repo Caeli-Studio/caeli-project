@@ -59,6 +59,7 @@ export interface Membership {
   custom_permissions: Record<string, boolean>;
   joined_at: string;
   left_at?: string;
+  role_name?: string;
 }
 
 export interface TaskTemplate {

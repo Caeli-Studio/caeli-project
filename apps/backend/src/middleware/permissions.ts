@@ -106,7 +106,7 @@ export function requireRole(...allowedRoles: string[]) {
       });
     }
 
-    if (!allowedRoles.includes(request.membership.role_name)) {
+    if (!allowedRoles.includes(request.membership.role)) {
       return reply.status(403).send({
         success: false,
         error: 'Insufficient role',

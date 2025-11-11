@@ -4,75 +4,69 @@ import { Calendar } from 'react-native-calendars';
 import Navbar from "@/components/navbar";
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type RootStackParamList = {
+  assignement: { page: number; selectedDate: string };
+  myCalendar: undefined; // si tu as d'autres écrans
+};
 
 
 const { width } = Dimensions.get('window');
 
 const MyCalendar: React.FC = () => {
-    const [selectedDate, setSelectedDate] = useState('');
-    const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
 
-    const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'myCalendar'>>();
 
-    const handleDayPress = (day: any) => {
-        setSelectedDate(day.dateString);
-        setModalVisible(true);
-    };
+  const handleDayPress = (day: { dateString: string }) => {
+    setSelectedDate(day.dateString);
+    setModalVisible(true);
+  };
 
-    const handleAddPress = () => {
-        setModalVisible(false);
-        navigation.navigate('assignement', { page : 1, selectedDate});
-    };
+  const handleAddPress = () => {
+    setModalVisible(false);
+    navigation.navigate('assignement', { page: 1, selectedDate });
+  };
 
-    const route = useRoute();
+  return (
+    <View style={styles.container}>
+      <View style={styles.calendarWrapper}>
+        <Calendar
+          onDayPress={handleDayPress}
+          markedDates={{
+            [selectedDate]: { selected: true, selectedColor: '#00adf5' },
+          }}
+        />
+      </View>
 
-    React.useEffect(() => {
-        if (route.params?.page === 1) {
-            setActivePage(1);
-        }
-    }, [route.params]);
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalDate}>{selectedDate}</Text>
+                <Text style={styles.modalText}>Aucune tâche de prévue ...</Text>
+                <TouchableOpacity onPress={handleAddPress}>
+                  <MaterialIcons name="add-circle" size={60} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.calendarWrapper}>
-                <Calendar
-                    onDayPress={handleDayPress}
-                    markedDates={{
-                        [selectedDate]: { selected: true, selectedColor: '#00adf5' },
-                    }}
-                />
-            </View>
-
-            <Modal
-                visible={modalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                {/* Overlay qui capte les touches */}
-                <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-                    <View style={styles.modalOverlay}>
-                        {/* Fenêtre interne qui n’est pas cliquable pour fermer */}
-                        <TouchableWithoutFeedback>
-                            <View style={styles.modalContent}>
-                                <Text style={styles.modalDate}>{selectedDate}</Text>
-                                <Text style={styles.modalText}>Aucune tâche de prévue ...</Text>
-                                <TouchableOpacity onPress={handleAddPress}>
-                                    <MaterialIcons name="add-circle" size={60} color="#FFF" />
-                                </TouchableOpacity>
-                                {/* Bouton Fermer optionnel */}
-                                {/* <Button title="Fermer" onPress={() => setModalVisible(false)} /> */}
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                </TouchableWithoutFeedback>
-            </Modal>
-
-            <Navbar />
-        </View>
-    );
+      <Navbar />
+    </View>
+  );
 };
+
 
 const styles = StyleSheet.create({
     container: {

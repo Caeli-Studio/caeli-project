@@ -1,19 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Dimensions,
-    TextInput,
-    Alert,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Navbar from "@/components/navbar";
-import { useRoute } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+
+type RouteParams = {
+  selectedDate?: string;
+  page?: number;
+};
 
 const Assignement = () => {
     const [activePage, setActivePage] = useState(0);
@@ -23,15 +28,20 @@ const Assignement = () => {
     const [taskImportance, setTaskImportance] = useState('');
 
     const [tasks, setTasks] = useState<
-        { name: string; description: string; assignement: string; importance: string }[]
+      { name: string; description: string; assignement: string; importance: string; date: string }[]
     >([]);
+
 
     const [importanceOpen, setImportanceOpen] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
-    const route = useRoute();
+
+  const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
+
     const dateSelected = route.params?.selectedDate;
 
-    const [taskDate, setTaskDate] = useState(dateSelected || new Date().toISOString().split('T')[0]);
+
+    const [taskDate] = useState(dateSelected || new Date().toISOString().split('T')[0]);
+
 
 
     const importanceOptions = [
@@ -87,10 +97,10 @@ const Assignement = () => {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                {['settings', 'logout'].map((icon) => (
-                    <TouchableOpacity key={icon}>
-                        <MaterialIcons name={icon} size={30} color="#FFFFFF" />
-                    </TouchableOpacity>
+                {(['settings', 'logout'] as const).map((icon) => (
+                  <TouchableOpacity key={icon}>
+                    <MaterialIcons name={icon} size={30} color="#FFFFFF" />
+                  </TouchableOpacity>
                 ))}
             </View>
 

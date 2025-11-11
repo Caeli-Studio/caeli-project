@@ -35,14 +35,17 @@ export async function createGroup(
     }
 
     // Add creator as owner
-    const { error: membershipError } = await request.supabaseClient
-      .from('memberships')
-      .insert({
-        group_id: group.id,
-        user_id: request.user.sub,
-        role_name: 'owner',
-        importance: 100,
-      });
+    const { data: membership, error: membershipError } =
+      await request.supabaseClient
+        .from('memberships')
+        .insert({
+          group_id: group.id,
+          user_id: request.user.sub,
+          role_name: 'owner',
+          importance: 100,
+        })
+        .select()
+        .single();
 
     if (membershipError) {
       request.log.error(membershipError, 'Failed to create owner membership');
@@ -58,7 +61,11 @@ export async function createGroup(
 
     return reply.status(201).send({
       success: true,
-      group,
+      data: {
+        group,
+        membership,
+      },
+      message: 'Foyer créé avec succès',
     });
   } catch (err) {
     request.log.error(err, 'Error in createGroup');

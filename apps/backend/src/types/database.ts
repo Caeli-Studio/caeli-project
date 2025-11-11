@@ -223,7 +223,7 @@ export interface ProfileResponse extends Omit<Profile, 'pin_hash'> {
 // Group
 export interface CreateGroupRequest {
   name: string;
-  type: GroupType;
+  type?: GroupType;
 }
 
 export interface UpdateGroupRequest {

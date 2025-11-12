@@ -82,14 +82,18 @@ export default function HouseholdsScreen() {
     return labels[type] || type;
   };
 
-  const getTypeIcon = (type: string) => {
-    const icons: Record<string, string> = {
+  const getTypeIcon = (
+    type: string
+  ): 'home' | 'people' | 'business' | 'category' => {
+    const icons: Record<string, 'home' | 'people' | 'business' | 'category'> = {
       family: 'home',
       roommates: 'people',
       company: 'business',
       other: 'category',
     };
-    return icons[type] || 'category';
+    return (
+      (icons[type] as 'home' | 'people' | 'business' | 'category') || 'category'
+    );
   };
 
   const renderHousehold = ({ item }: { item: GroupWithMembership }) => (
@@ -103,7 +107,7 @@ export default function HouseholdsScreen() {
         <CardContent style={styles.householdCardContent}>
           <View style={styles.householdIcon}>
             <MaterialIcons
-              name={getTypeIcon(item.group.type) as any}
+              name={getTypeIcon(item.group.type)}
               size={32}
               color="#C5BD83"
             />

@@ -26,14 +26,22 @@ export async function signInWithGoogle(
   try {
     const { redirectUrl } = request.body;
 
+    // Log the redirect URL being used
+    const finalRedirectUrl =
+      redirectUrl ||
+      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback`;
+
+    request.log.info(
+      { redirectUrl, finalRedirectUrl },
+      'Initiating Google OAuth'
+    );
+
     // Get the OAuth URL from Supabase
     const { data, error } =
       await request.server.supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo:
-            redirectUrl ||
-            `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback`,
+          redirectTo: finalRedirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

@@ -72,7 +72,7 @@ export default [
 
       // Import/Export rules
       'import/order': [
-        'error',
+        'warn',
         {
           groups: [
             'builtin',

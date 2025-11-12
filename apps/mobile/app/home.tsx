@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   View,
@@ -9,14 +10,14 @@ import {
   Alert,
 } from 'react-native';
 
+import Navbar from '../components/navbar';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
-import Navbar from '../components/navbar';
-
 const Home: React.FC = () => {
   const { user, signOut } = useAuth();
+  const router = useRouter();
   const [tasks, setTasks] = useState([
     { id: '1', title: 'Faire les courses 🛒', done: false },
     { id: '2', title: 'Réviser le chapitre 5 📚', done: true },
@@ -130,7 +131,10 @@ const Home: React.FC = () => {
         )}
 
         {/* FAB */}
-        <TouchableOpacity style={styles.fab}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/create-household')}
+        >
           <Ionicons name="add" size={30} color="#fff" />
         </TouchableOpacity>
 

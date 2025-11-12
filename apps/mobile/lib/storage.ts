@@ -95,8 +95,13 @@ export const storage = {
   async saveSession(session: Session): Promise<void> {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(session));
-      await this.saveAccessToken(session.access_token);
-      await this.saveRefreshToken(session.refresh_token);
+      // Only save tokens if they exist (not undefined)
+      if (session.access_token) {
+        await this.saveAccessToken(session.access_token);
+      }
+      if (session.refresh_token) {
+        await this.saveRefreshToken(session.refresh_token);
+      }
     } catch (error) {
       console.error('Error saving session:', error);
       throw error;

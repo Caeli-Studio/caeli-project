@@ -1,226 +1,517 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
+import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
+  ActivityIndicator,
   ScrollView,
-  Dimensions,
-  TextInput,
+  Alert,
 } from 'react-native';
 
 import Navbar from '@/components/navbar';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { apiService } from '@/services/api.service';
+import { Group, Membership, GetGroupsResponse } from '@/types/group';
 
-const { width } = Dimensions.get('window');
+interface GroupWithMembership {
+  group: Group;
+  membership: Membership;
+}
 
-const Organisation = () => {
-  const [activePage, setActivePage] = useState(0);
+export default function HouseholdsScreen() {
+  const router = useRouter();
+  const [households, setHouseholds] = useState<GroupWithMembership[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pages = [
-    {
-      text: 'Vous n’appartenez à aucune organisation.\nCréez-en une en cliquant ci-dessous',
-      icon: <MaterialIcons name="add-circle" size={60} color="#fff" />,
-      label: 'Créer une organisation',
-    },
-    {
-      text: 'Ou rejoignez-en une existante',
-      icon: <MaterialIcons name="photo-camera" size={60} color="#fff" />,
-      label: 'Scanner un QR code',
-    },
-  ];
+  // Reload households when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadHouseholds();
+    }, [])
+  );
 
-  const handleScroll = (event: {
-    nativeEvent: { contentOffset: { x: number } };
-  }) => {
-    const pageIndex = Math.round(
-      event.nativeEvent.contentOffset.x / (width * 0.8)
-    );
-    setActivePage(pageIndex);
+  const loadHouseholds = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.get<GetGroupsResponse>('/api/groups');
+
+      if (response.success) {
+        setHouseholds(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading households:', error);
+      Alert.alert(
+        'Erreur',
+        'Impossible de charger les foyers. Veuillez réessayer.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIcon}>
-          <MaterialIcons name="settings" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon}>
-          <MaterialIcons name="logout" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      owner: 'Maître de foyer',
+      admin: 'Administrateur',
+      member: 'Membre',
+      child: 'Enfant',
+      guest: 'Invité',
+    };
+    return labels[role] || role;
+  };
 
-      {/* Contenu centré */}
-      <View style={styles.centeredContent}>
-        <View style={styles.card}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={handleScroll}
-            contentContainerStyle={{
-              alignItems: 'center',
-              height: '100%',
-            }}
-          >
-            {pages.map((page, index) => (
-              <View style={styles.innerContent} key={index}>
-                <Text style={styles.message}>{page.text}</Text>
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      family: 'Famille',
+      roommates: 'Colocataires',
+      company: 'Entreprise',
+      other: 'Autre',
+    };
+    return labels[type] || type;
+  };
 
-                <TouchableOpacity style={styles.actionButton}>
-                  {page.icon}
-                  <Text style={styles.buttonLabel}>{page.label}</Text>
-                </TouchableOpacity>
+  const getTypeIcon = (type: string) => {
+    const icons: Record<string, string> = {
+      family: 'home',
+      roommates: 'people',
+      company: 'business',
+      other: 'category',
+    };
+    return icons[type] || 'category';
+  };
 
-                {index === 1 && (
-                  <View style={styles.secondChoice}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Nom de l'organisation"
-                      placeholderTextColor="#777"
-                    />
-                    <TouchableOpacity style={styles.joinButton}>
-                      <Text style={styles.joinText}>Rejoindre</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            ))}
-          </ScrollView>
-
-          {/* Pagination Dots */}
-          <View style={styles.dotContainer}>
-            {pages.map((_, index) => (
-              <View
-                key={index}
-                style={[styles.dot, activePage === index && styles.activeDot]}
-              />
-            ))}
+  const renderHousehold = ({ item }: { item: GroupWithMembership }) => (
+    <Card style={styles.householdCard}>
+      <TouchableOpacity
+        onPress={() => {
+          // Navigate to household detail (to implement later)
+          router.push('/home');
+        }}
+      >
+        <CardContent style={styles.householdCardContent}>
+          <View style={styles.householdIcon}>
+            <MaterialIcons
+              name={getTypeIcon(item.group.type) as any}
+              size={32}
+              color="#C5BD83"
+            />
           </View>
-        </View>
-      </View>
-
-      <Navbar />
-    </View>
+          <View style={styles.householdInfo}>
+            <Text style={styles.householdName}>{item.group.name}</Text>
+            <Text style={styles.householdType}>
+              {getTypeLabel(item.group.type)}
+            </Text>
+            <Text style={styles.householdRole}>
+              {getRoleLabel(item.membership.role_name)}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={28} color="#C5BD83" />
+        </CardContent>
+      </TouchableOpacity>
+    </Card>
   );
-};
+
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#C5BD83" />
+          <Text style={styles.loadingText}>Chargement des foyers...</Text>
+        </View>
+      </ProtectedRoute>
+    );
+  }
+
+  return (
+    <ProtectedRoute>
+      <Stack.Screen options={{ headerShown: true, title: 'Organisation' }} />
+      <View
+        style={households.length > 0 ? styles.container : styles.emptyContainer}
+      >
+        {/* Households List */}
+        {households.length > 0 ? (
+          <>
+            {/* Header for list view */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.headerTitle}>Mes Foyers</Text>
+                <Text style={styles.headerSubtitle}>
+                  {households.length} organisation
+                  {households.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={loadHouseholds}
+                style={styles.refreshButton}
+              >
+                <MaterialIcons name="refresh" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={households}
+              keyExtractor={(item) => item.group.id}
+              renderItem={renderHousehold}
+              contentContainerStyle={styles.listContainer}
+            />
+
+            {/* FAB - Create Household */}
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={() => router.push('/create-household')}
+            >
+              <MaterialIcons name="add" size={32} color="#fff" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={styles.emptyStateContainer}>
+            {/* Main Content */}
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Welcome Card */}
+              <Card className="mb-6" style={styles.welcomeCard}>
+                <CardHeader>
+                  <View style={styles.welcomeIcon}>
+                    <MaterialIcons name="home-work" size={48} color="#8B7355" />
+                  </View>
+                  <CardTitle
+                    className="text-center"
+                    style={styles.welcomeTitle}
+                  >
+                    Bienvenue !
+                  </CardTitle>
+                  <CardDescription
+                    className="text-center"
+                    style={styles.welcomeDescription}
+                  >
+                    Vous n'appartenez à aucune organisation pour le moment.
+                    Créez-en une ou rejoignez une organisation existante.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Create Organization Card */}
+              <Card className="mb-4" style={styles.actionCard}>
+                <CardHeader>
+                  <CardTitle style={styles.cardTitle}>
+                    Créer une organisation
+                  </CardTitle>
+                  <CardDescription style={styles.cardDescription}>
+                    Commencez votre aventure en créant votre propre organisation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TouchableOpacity
+                    onPress={() => router.push('/create-household')}
+                    style={styles.primaryButton}
+                  >
+                    <MaterialIcons name="add-circle" size={20} color="#fff" />
+                    <Text style={styles.primaryButtonText}>
+                      Créer une organisation
+                    </Text>
+                  </TouchableOpacity>
+                </CardContent>
+              </Card>
+
+              {/* Join Organization Card */}
+              <Card className="mb-4" style={styles.actionCard}>
+                <CardHeader>
+                  <CardTitle style={styles.cardTitle}>
+                    Rejoindre une organisation
+                  </CardTitle>
+                  <CardDescription style={styles.cardDescription}>
+                    Scannez un QR code ou entrez le code d'invitation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TouchableOpacity
+                    onPress={() =>
+                      Alert.alert('Scanner QR', 'Fonctionnalité à venir')
+                    }
+                    style={styles.secondaryButton}
+                  >
+                    <MaterialIcons
+                      name="qr-code-scanner"
+                      size={20}
+                      color="#8B7355"
+                    />
+                    <Text style={styles.secondaryButtonText}>
+                      Scanner un QR code
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.orText}>ou</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  <Input
+                    placeholder="Code d'invitation"
+                    style={styles.codeInput}
+                  />
+                  <TouchableOpacity style={styles.joinButton}>
+                    <Text style={styles.joinButtonText}>Rejoindre</Text>
+                  </TouchableOpacity>
+                </CardContent>
+              </Card>
+            </ScrollView>
+          </View>
+        )}
+
+        <Navbar />
+      </View>
+    </ProtectedRoute>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  emptyContainer: {
+    flex: 1,
     backgroundColor: '#C5BD83',
+  },
+  emptyStateContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    backgroundColor: '#C5BD83',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 30,
+    paddingBottom: 16,
   },
-  headerIcon: {
-    padding: 6,
+  scrollContent: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 100,
   },
-  centeredContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    backgroundColor: '#D9D9D9',
-    borderRadius: 12,
-    padding: 16,
-    maxWidth: '90%',
-    height: 380,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  innerContent: {
-    width: width * 0.8,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  message: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  actionButton: {
-    backgroundColor: '#898989',
-    width: '80%',
-    paddingVertical: 15,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  buttonLabel: {
     color: '#fff',
-    fontWeight: 'bold',
-    marginTop: 8,
-    fontSize: 16,
+    lineHeight: 32,
   },
-  secondChoice: {
-    width: '80%',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
   },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
+  refreshButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+  },
+  listContainer: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  householdCard: {
     marginBottom: 12,
     backgroundColor: '#fff',
-    color: '#333',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  householdCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  householdIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f9f8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  householdInfo: {
+    flex: 1,
+  },
+  householdName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 4,
+  },
+  householdType: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  householdRole: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  welcomeIcon: {
+    alignSelf: 'center',
+    marginBottom: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f9f8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  welcomeTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  welcomeDescription: {
+    fontSize: 16,
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginTop: 8,
+  },
+  actionCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 15,
+    color: '#000000',
+    lineHeight: 22,
+  },
+  orText: {
+    fontSize: 15,
+    color: '#000000',
+    paddingHorizontal: 8,
+  },
+  primaryButton: {
+    backgroundColor: '#8B7355',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#8B7355',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  secondaryButtonText: {
+    color: '#8B7355',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  codeInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
   },
   joinButton: {
-    backgroundColor: '#555',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
+    backgroundColor: '#f9f8f0',
+    borderWidth: 2,
+    borderColor: '#8B7355',
+    padding: 16,
     borderRadius: 8,
+    alignItems: 'center',
   },
-  joinText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  joinButtonText: {
+    color: '#8B7355',
     fontSize: 16,
+    fontWeight: '600',
   },
-  dotContainer: {
+  divider: {
     flexDirection: 'row',
-    marginTop: 20,
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e5e5',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#C5BD83',
     justifyContent: 'center',
-  },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#C0C0C0',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: '#898989',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
 });
-
-export default Organisation;

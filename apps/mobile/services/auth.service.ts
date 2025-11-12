@@ -1,13 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
 
-
-import {
-  API_ENDPOINTS,
-  SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
-} from '@/lib/config';
-import { storage } from '@/lib/storage';
-
 import type {
   AuthResponse,
   GoogleOAuthResponse,
@@ -16,6 +8,13 @@ import type {
   Session,
   User,
 } from '@/types/auth';
+
+import {
+  API_ENDPOINTS,
+  SESSION_REFRESH_THRESHOLD,
+  OAUTH_REDIRECT_URL,
+} from '@/lib/config';
+import { storage } from '@/lib/storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -261,6 +260,7 @@ class AuthService {
       const refreshToken = await storage.getRefreshToken();
 
       if (!refreshToken) {
+        console.error('No refresh token available - user needs to sign in');
         return {
           success: false,
           error: 'No refresh token found',
@@ -286,11 +286,17 @@ class AuthService {
 
         // Reschedule token refresh
         this.scheduleTokenRefresh(data.session);
+      } else {
+        // Refresh failed, clear auth data
+        console.error('Session refresh failed, clearing auth data');
+        await storage.clearAuth();
       }
 
       return data;
     } catch (error) {
       console.error('Error in refreshSession:', error);
+      // Clear auth data on error
+      await storage.clearAuth();
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

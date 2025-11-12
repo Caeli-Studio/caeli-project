@@ -32,6 +32,12 @@ function createApp() {
     requestIdLogLabel: 'reqId',
   });
 
+  // Override Fastify's default serializer to use standard JSON.stringify
+  // This preserves null values (fast-json-stringify removes them by default)
+  app.setSerializerCompiler(() => {
+    return (data) => JSON.stringify(data);
+  });
+
   return app;
 }
 

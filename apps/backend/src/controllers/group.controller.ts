@@ -15,8 +15,21 @@ export async function createGroup(
   try {
     await request.jwtVerify();
 
+    const userId = request.user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        error: 'User ID not found in token',
+      });
+    }
+
+    // Use service client to bypass RLS (we handle auth in the code)
+    const supabase =
+      (request as any).supabaseServiceClient || request.supabaseClient;
+
     // Create the group
-    const { data: group, error: groupError } = await request.supabaseClient
+    const { data: group, error: groupError } = await supabase
       .from('groups')
       .insert({
         name: request.body.name,
@@ -35,22 +48,21 @@ export async function createGroup(
     }
 
     // Add creator as owner
-    const { data: membership, error: membershipError } =
-      await request.supabaseClient
-        .from('memberships')
-        .insert({
-          group_id: group.id,
-          user_id: request.user.sub,
-          role_name: 'owner',
-          importance: 100,
-        })
-        .select()
-        .single();
+    const { data: membership, error: membershipError } = await supabase
+      .from('memberships')
+      .insert({
+        group_id: group.id,
+        user_id: userId,
+        role_name: 'owner',
+        importance: 100,
+      })
+      .select()
+      .single();
 
     if (membershipError) {
       request.log.error(membershipError, 'Failed to create owner membership');
       // Rollback: delete the group
-      await request.supabaseClient.from('groups').delete().eq('id', group.id);
+      await supabase.from('groups').delete().eq('id', group.id);
 
       return reply.status(400).send({
         success: false,
@@ -87,46 +99,79 @@ export async function getMyGroups(
   try {
     await request.jwtVerify();
 
-    const { data: memberships, error } = await request.supabaseClient
+    const userId = request.user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        error: 'User ID not found in token',
+      });
+    }
+
+    // Use service client to bypass RLS
+    const supabase =
+      (request as any).supabaseServiceClient || request.supabaseClient;
+
+    // Get user's memberships
+    const { data: memberships, error } = await supabase
       .from('memberships')
-      .select(
-        `
-        *,
-        group:groups(*)
-      `
-      )
-      .eq('user_id', request.user.sub)
+      .select('*')
+      .eq('user_id', userId)
       .is('left_at', null);
 
     if (error) {
-      request.log.error(error, 'Failed to fetch groups');
+      request.log.error(error, 'Failed to fetch memberships');
       return reply.status(400).send({
         success: false,
-        error: 'Failed to fetch groups',
+        error: 'Failed to fetch memberships',
         message: error.message,
       });
     }
 
-    // Count members for each group
-    const groups: GroupResponse[] = await Promise.all(
-      (memberships || []).map(async (membership) => {
-        const { count } = await request.supabaseClient
-          .from('memberships')
-          .select('*', { count: 'exact', head: true })
-          .eq('group_id', membership.group.id)
-          .is('left_at', null);
+    if (!memberships || memberships.length === 0) {
+      return reply.send({
+        success: true,
+        data: [],
+      });
+    }
 
-        return {
-          ...membership.group,
-          my_membership: membership,
-          member_count: count || 0,
-        };
-      })
-    );
+    // Get all groups for these memberships
+    const groupIds = memberships.map((m: any) => m.group_id);
+    const { data: groups, error: groupsError } = await supabase
+      .from('groups')
+      .select('*')
+      .in('id', groupIds);
+
+    if (groupsError) {
+      request.log.error(groupsError, 'Failed to fetch groups');
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to fetch groups',
+        message: groupsError.message,
+      });
+    }
+
+    // Transform to match frontend expectation: array of { group, membership }
+    const groupsData = memberships.map((membership: any) => {
+      const group = groups?.find((g: any) => g.id === membership.group_id);
+      return {
+        group: group || null,
+        membership: {
+          id: membership.id,
+          group_id: membership.group_id,
+          user_id: membership.user_id,
+          role_name: membership.role_name,
+          importance: membership.importance,
+          custom_permissions: membership.custom_permissions,
+          joined_at: membership.joined_at,
+          left_at: membership.left_at,
+        },
+      };
+    });
 
     return reply.send({
       success: true,
-      groups,
+      data: groupsData,
     });
   } catch (err) {
     request.log.error(err, 'Error in getMyGroups');

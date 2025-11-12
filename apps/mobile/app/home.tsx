@@ -10,10 +10,9 @@ import {
   Alert,
 } from 'react-native';
 
-import Navbar from '../components/navbar';
-
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import Navbar from '../components/navbar';
 
 const Home: React.FC = () => {
   const { user, signOut } = useAuth();

@@ -1,5 +1,11 @@
 import * as WebBrowser from 'expo-web-browser';
 
+import {
+  API_ENDPOINTS,
+  SESSION_REFRESH_THRESHOLD,
+  OAUTH_REDIRECT_URL,
+} from '@/lib/config';
+import { storage } from '@/lib/storage';
 import type {
   AuthResponse,
   GoogleOAuthResponse,
@@ -8,13 +14,6 @@ import type {
   Session,
   User,
 } from '@/types/auth';
-
-import {
-  API_ENDPOINTS,
-  SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
-} from '@/lib/config';
-import { storage } from '@/lib/storage';
 
 WebBrowser.maybeCompleteAuthSession();
 

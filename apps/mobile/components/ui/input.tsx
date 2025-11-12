@@ -1,9 +1,10 @@
-import { cn } from '@/lib/utils';
 import { Platform, TextInput, type TextInputProps } from 'react-native';
+
+import { cn } from '@/lib/utils';
 
 function Input({
   className,
-  placeholderClassName,
+  placeholderClassName: _placeholderClassName,
   ...props
 }: TextInputProps & React.RefAttributes<TextInput>) {
   return (
@@ -13,7 +14,9 @@ function Input({
         props.editable === false &&
           cn(
             'opacity-50',
-            Platform.select({ web: 'disabled:pointer-events-none disabled:cursor-not-allowed' })
+            Platform.select({
+              web: 'disabled:pointer-events-none disabled:cursor-not-allowed',
+            })
           ),
         Platform.select({
           web: cn(

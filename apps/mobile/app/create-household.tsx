@@ -15,6 +15,7 @@ import {
 import { apiService } from '@/services/api.service';
 
 type GroupType = 'family' | 'roommates' | 'company' | 'other';
+type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
 interface CreateGroupRequest {
   name: string;
@@ -44,7 +45,7 @@ export default function CreateHouseholdScreen() {
   const [selectedType, setSelectedType] = useState<GroupType>('family');
   const [loading, setLoading] = useState(false);
 
-  const groupTypes: { value: GroupType; label: string; icon: string }[] = [
+  const groupTypes: { value: GroupType; label: string; icon: IconName }[] = [
     { value: 'family', label: 'Famille', icon: 'home' },
     { value: 'roommates', label: 'Colocataires', icon: 'people' },
     { value: 'company', label: 'Entreprise', icon: 'business' },
@@ -139,7 +140,7 @@ export default function CreateHouseholdScreen() {
                 onPress={() => setSelectedType(type.value)}
               >
                 <MaterialIcons
-                  name={type.icon as any}
+                  name={type.icon}
                   size={32}
                   color={selectedType === type.value ? '#C5BD83' : '#666'}
                 />

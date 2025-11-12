@@ -2,9 +2,55 @@
  * Application configuration
  */
 
-// Backend API URL - Update this to match your backend server
+import { Platform } from 'react-native';
+
+/**
+ * IMPORTANT: Network Configuration
+ *
+ * For Android Emulator: Uses 10.0.2.2 (special alias for host machine)
+ * For iOS Simulator: Uses localhost
+ * For Physical Devices: Update LOCAL_IP_ADDRESS to your computer's IP
+ *
+ * To find your IP address on macOS:
+ * - Run: ifconfig | grep "inet " | grep -v 127.0.0.1
+ * - Or: System Settings > Network > Your Connection > IP Address
+ *
+ * Current detected IP: 172.20.10.11
+ */
+
+// Update this if testing on a physical device
+const LOCAL_IP_ADDRESS = '172.20.10.11';
+const BACKEND_PORT = '3000';
+
+/**
+ * Get the local development URL based on platform
+ */
+const getDevApiUrl = () => {
+  // For Android emulator, use the special IP that routes to host machine
+  if (Platform.OS === 'android') {
+    // Uncomment the next line if using Android emulator
+    // return `http://10.0.2.2:${BACKEND_PORT}`;
+
+    // For physical Android device, use your computer's IP
+    return `http://${LOCAL_IP_ADDRESS}:${BACKEND_PORT}`;
+  }
+
+  // For iOS simulator, localhost works fine
+  if (Platform.OS === 'ios') {
+    // Uncomment the next line if using physical iOS device
+    // return `http://${LOCAL_IP_ADDRESS}:${BACKEND_PORT}`;
+
+    // Use 127.0.0.1 instead of localhost for better compatibility
+    return `http://172.20.10.11:${BACKEND_PORT}`;
+  }
+
+  // Fallback
+  return `http://172.20.10.11:${BACKEND_PORT}`;
+};
+
+// Backend API URL
 export const API_BASE_URL = __DEV__
-  ? 'http://localhost:8000' // Development
+  ? getDevApiUrl()
   : 'https://your-production-api.com'; // Production
 
 export const API_ENDPOINTS = {

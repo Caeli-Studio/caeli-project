@@ -1,5 +1,12 @@
-import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+
+
+import {
+  API_ENDPOINTS,
+  SESSION_REFRESH_THRESHOLD,
+  OAUTH_REDIRECT_URL,
+} from '@/lib/config';
+import { storage } from '@/lib/storage';
 
 import type {
   AuthResponse,
@@ -9,9 +16,6 @@ import type {
   Session,
   User,
 } from '@/types/auth';
-
-import { API_ENDPOINTS, SESSION_REFRESH_THRESHOLD } from '@/lib/config';
-import { storage } from '@/lib/storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,6 +32,9 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
+      // Debug: Log the URL being called
+      console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
+
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
         method: 'POST',
@@ -35,10 +42,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirectUrl: makeRedirectUri({
-            scheme: 'caeli',
-            path: 'auth/callback',
-          }),
+          redirectUrl: OAUTH_REDIRECT_URL,
         }),
       });
 
@@ -51,25 +55,66 @@ class AuthService {
       // Open the OAuth URL in a browser
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        makeRedirectUri({
-          scheme: 'caeli',
-          path: 'auth/callback',
-        })
+        OAUTH_REDIRECT_URL
       );
 
       if (result.type !== 'success') {
+        console.warn('Authentication result type:', result.type);
         throw new Error('Authentication was cancelled or failed');
       }
 
-      // Extract the authorization code from the callback URL
+      // Parse the URL - Supabase returns tokens in hash fragment
       const url = new URL(result.url);
+
+      // Check if we got tokens directly in the hash (PKCE flow)
+      if (url.hash) {
+        const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove '#'
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken) {
+          // Parse the session from hash params
+          const session = {
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+            expires_in: parseInt(hashParams.get('expires_in') || '3600', 10),
+            expires_at: parseInt(
+              hashParams.get('expires_at') || String(Date.now() / 1000 + 3600),
+              10
+            ),
+            token_type: hashParams.get('token_type') || 'bearer',
+          };
+
+          // Save session
+          await storage.saveSession(session);
+
+          // Get user info from the access token
+          const userResponse = await this.getSession();
+
+          if (userResponse.success && userResponse.user) {
+            await storage.saveUser(userResponse.user);
+            this.scheduleTokenRefresh(session);
+
+            return {
+              success: true,
+              session,
+              user: userResponse.user,
+            };
+          }
+        }
+      }
+
+      // Otherwise, try to get authorization code (code flow)
       const code = url.searchParams.get('code');
 
       if (!code) {
         const error = url.searchParams.get('error');
         const errorDescription = url.searchParams.get('error_description');
+
         throw new Error(
-          errorDescription || error || 'No authorization code received'
+          errorDescription ||
+            error ||
+            'No authorization code or tokens received'
         );
       }
 

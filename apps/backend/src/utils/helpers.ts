@@ -37,6 +37,20 @@ export function generateHubCode(length = 8): string {
 }
 
 /**
+ * Generate a random invitation code
+ */
+export function generateInvitationCode(length = 8): string {
+  return generateHubCode(length); // Use same logic as hub codes
+}
+
+/**
+ * Validate pseudo format (3-20 alphanumeric + underscore, no spaces)
+ */
+export function isValidPseudo(pseudo: string): boolean {
+  return /^[a-zA-Z0-9_]{3,20}$/.test(pseudo);
+}
+
+/**
  * Get permissions for a membership
  */
 export function getMembershipPermissions(membership: Membership): Permission {

@@ -45,8 +45,14 @@ export default async function profileRoutes(fastify: FastifyInstance) {
         type: 'object',
         properties: {
           display_name: { type: 'string', minLength: 1, maxLength: 100 },
+          pseudo: {
+            type: 'string',
+            pattern: '^[a-zA-Z0-9_]{3,20}$',
+            description: 'Unique username (3-20 alphanumeric + underscore)',
+          },
           avatar_url: { type: 'string' },
-          pin: { type: 'string', minLength: 4, maxLength: 6 },
+          locale: { type: 'string', enum: ['en', 'fr'] },
+          pin: { type: 'string', pattern: '^[0-9]{4,6}$' },
         },
       },
       response: {
@@ -72,11 +78,16 @@ export default async function profileRoutes(fastify: FastifyInstance) {
       security: [{ bearerAuth: [] }],
       body: {
         type: 'object',
-        required: ['display_name', 'pin'],
+        required: ['display_name'],
         properties: {
           display_name: { type: 'string', minLength: 1, maxLength: 100 },
+          pseudo: {
+            type: 'string',
+            pattern: '^[a-zA-Z0-9_]{3,20}$',
+            description: 'Unique username (3-20 alphanumeric + underscore)',
+          },
           avatar_url: { type: 'string' },
-          pin: { type: 'string', minLength: 4, maxLength: 6 },
+          locale: { type: 'string', enum: ['en', 'fr'] },
         },
       },
       response: {

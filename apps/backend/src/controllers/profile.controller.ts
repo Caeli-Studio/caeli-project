@@ -1,6 +1,10 @@
-import { hashPin } from '../utils/helpers';
+import { hashPin, isValidPseudo } from '../utils/helpers';
 
-import type { ProfileResponse, UpdateProfileRequest } from '../types/database';
+import type {
+  CreateProfileRequest,
+  ProfileResponse,
+  UpdateProfileRequest,
+} from '../types/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /**
@@ -74,6 +78,17 @@ export async function updateMyProfile(
       updateData.display_name = request.body.display_name;
     }
 
+    if (request.body.pseudo !== undefined) {
+      if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid pseudo format',
+          message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
+        });
+      }
+      updateData.pseudo = request.body.pseudo;
+    }
+
     if (request.body.avatar_url !== undefined) {
       updateData.avatar_url = request.body.avatar_url;
     }
@@ -95,6 +110,16 @@ export async function updateMyProfile(
 
     if (error) {
       request.log.error(error, 'Failed to update profile');
+
+      // Handle unique constraint violation
+      if (error.code === '23505' && error.message.includes('pseudo')) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Pseudo already taken',
+          message: 'This pseudo is already in use by another user',
+        });
+      }
+
       return reply.status(400).send({
         success: false,
         error: 'Failed to update profile',
@@ -128,7 +153,7 @@ export async function getUserProfile(
 
     const { data: profile, error } = await request.supabaseClient
       .from('profiles')
-      .select('user_id, display_name, avatar_url, locale, created_at')
+      .select('user_id, display_name, pseudo, avatar_url, locale, created_at')
       .eq('user_id', request.params.user_id)
       .single();
 
@@ -157,9 +182,7 @@ export async function getUserProfile(
  * Create profile after sign up (called automatically via trigger or manually)
  */
 export async function createProfile(
-  request: FastifyRequest<{
-    Body: { display_name: string; avatar_url?: string; locale?: string };
-  }>,
+  request: FastifyRequest<{ Body: CreateProfileRequest }>,
   reply: FastifyReply
 ) {
   try {
@@ -178,11 +201,21 @@ export async function createProfile(
       });
     }
 
+    // Validate pseudo if provided
+    if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
+      return reply.status(400).send({
+        success: false,
+        error: 'Invalid pseudo format',
+        message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
+      });
+    }
+
     const { data: profile, error } = await request.supabaseClient
       .from('profiles')
       .insert({
         user_id: request.user.sub,
         display_name: request.body.display_name,
+        pseudo: request.body.pseudo,
         avatar_url: request.body.avatar_url,
         locale: request.body.locale || 'en',
       })
@@ -191,6 +224,16 @@ export async function createProfile(
 
     if (error) {
       request.log.error(error, 'Failed to create profile');
+
+      // Handle unique constraint violation
+      if (error.code === '23505' && error.message.includes('pseudo')) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Pseudo already taken',
+          message: 'This pseudo is already in use by another user',
+        });
+      }
+
       return reply.status(400).send({
         success: false,
         error: 'Failed to create profile',

@@ -34,6 +34,7 @@ export interface Address {
 export interface Profile {
   user_id: string;
   display_name: string;
+  pseudo?: string;
   avatar_url?: string;
   pin_hash?: string;
   locale: Locale;
@@ -167,6 +168,19 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface Invitation {
+  id: string;
+  group_id: string;
+  code?: string;
+  pseudo?: string;
+  created_by: string;
+  max_uses: number;
+  current_uses: number;
+  expires_at: string;
+  created_at: string;
+  revoked_at?: string;
+}
+
 // =====================================================
 // EXTENDED/POPULATED ENTITIES
 // =====================================================
@@ -209,8 +223,16 @@ export interface NotificationWithDetails extends Notification {
 // =====================================================
 
 // Profile
+export interface CreateProfileRequest {
+  display_name: string;
+  pseudo?: string;
+  avatar_url?: string;
+  locale?: Locale;
+}
+
 export interface UpdateProfileRequest {
   display_name?: string;
+  pseudo?: string;
   avatar_url?: string;
   locale?: Locale;
   pin?: string; // Will be hashed
@@ -377,6 +399,23 @@ export interface UpdateTaskTemplateRequest {
 }
 
 export interface TaskTemplateResponse extends TaskTemplate {
+  creator?: MembershipWithProfile;
+}
+
+// Invitation
+export interface CreateInvitationRequest {
+  type: 'qr' | 'pseudo';
+  pseudo?: string; // Required if type = 'pseudo'
+  expires_in_hours?: number; // Default: 24
+  max_uses?: number; // Default: 1
+}
+
+export interface AcceptInvitationRequest {
+  code_or_pseudo: string;
+}
+
+export interface InvitationResponse extends Invitation {
+  group?: Group;
   creator?: MembershipWithProfile;
 }
 

@@ -4,6 +4,7 @@ import authRoutes from './auth.routes';
 import groupRoutes from './group.routes';
 import { healthRoutes } from './health';
 import hubRoutes from './hub.routes';
+import invitationRoutes from './invitation.routes';
 import membershipRoutes from './membership.routes';
 import notificationRoutes from './notification.routes';
 import profileRoutes from './profile.routes';
@@ -37,6 +38,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
       // Group routes
       await api.register(groupRoutes, { prefix: '/groups' });
+
+      // Invitation routes (includes both group-scoped and public endpoints)
+      await api.register(invitationRoutes);
 
       // Notification routes
       await api.register(notificationRoutes, { prefix: '/notifications' });

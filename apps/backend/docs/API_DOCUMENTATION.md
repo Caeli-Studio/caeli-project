@@ -78,8 +78,8 @@ pnpm dev
 ### Profile
 
 - `GET /api/profile/me` - Get my profile
-- `PUT /api/profile/me` - Update my profile
-- `POST /api/profile` - Create profile
+- `PUT /api/profile/me` - Update my profile (includes pseudo)
+- `POST /api/profile` - Create profile (can set pseudo)
 - `GET /api/profile/:user_id` - Get user profile
 
 ### Groups
@@ -94,9 +94,17 @@ pnpm dev
 ### Members (within a group)
 
 - `GET /api/groups/:group_id/members` - List members
-- `POST /api/groups/:group_id/members/invite` - Invite member
+- `POST /api/groups/:group_id/members/invite` - Invite member (direct add)
 - `PUT /api/groups/:group_id/members/:member_id` - Update member role
 - `DELETE /api/groups/:group_id/members/:member_id` - Remove member
+
+### Invitations
+
+- `POST /api/groups/:group_id/invitations` - Create invitation (QR or pseudo)
+- `GET /api/invitations/:code_or_pseudo` - Get invitation details (public)
+- `POST /api/invitations/:code_or_pseudo/accept` - Accept invitation
+- `GET /api/groups/:group_id/invitations` - List group invitations
+- `DELETE /api/groups/:group_id/invitations/:invitation_id` - Revoke invitation
 
 ### Tasks
 
@@ -284,6 +292,88 @@ POST /api/hub/connect
   "pin": "1234"
 }
 ```
+
+## 👥 Invitation System
+
+Caeli supports two types of invitations to join groups:
+
+### Invitation via QR Code
+
+Create shareable QR codes for group invitations:
+
+```bash
+# Create QR code invitation
+POST /api/groups/GROUP_ID/invitations
+{
+  "type": "qr",
+  "expires_in_hours": 24,  // Optional, default: 24
+  "max_uses": 1             // Optional, default: 1
+}
+# Returns: { invitation: { code: "ABC12XY7", ... } }
+
+# User scans QR code, app calls
+GET /api/invitations/ABC12XY7
+# Returns group info without authentication
+
+# User accepts invitation (requires auth)
+POST /api/invitations/ABC12XY7/accept
+# Creates membership and joins group
+```
+
+### Invitation via Pseudo
+
+Invite specific users by their unique pseudo (username):
+
+```bash
+# Create pseudo-based invitation
+POST /api/groups/GROUP_ID/invitations
+{
+  "type": "pseudo",
+  "pseudo": "alice_2024",
+  "expires_in_hours": 168  // 7 days
+}
+
+# User with that pseudo accepts
+POST /api/invitations/alice_2024/accept
+# Only works if authenticated user has pseudo "alice_2024"
+```
+
+### Managing Invitations
+
+```bash
+# List all active invitations for a group
+GET /api/groups/GROUP_ID/invitations
+
+# Revoke an invitation
+DELETE /api/groups/GROUP_ID/invitations/INVITATION_ID
+```
+
+### Profile Pseudo
+
+Users can set a unique pseudo (username) for invitation purposes:
+
+```bash
+# Set pseudo when creating profile
+POST /api/profile
+{
+  "display_name": "Alice Johnson",
+  "pseudo": "alice_2024",  // 3-20 chars, alphanumeric + underscore
+  "locale": "en"
+}
+
+# Update pseudo later
+PUT /api/profile/me
+{
+  "pseudo": "new_pseudo"
+}
+```
+
+**Pseudo rules:**
+
+- 3-20 characters
+- Alphanumeric + underscore only
+- Must be unique across all users
+- Optional (not required for basic usage)
 
 ## 🛠️ Development
 

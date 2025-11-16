@@ -1,0 +1,481 @@
+import { generateInvitationCode, isValidPseudo } from '../utils/helpers';
+
+import type {
+  AcceptInvitationRequest,
+  CreateInvitationRequest,
+} from '../types/database';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+
+/**
+ * Create a new invitation (QR code or pseudo)
+ */
+export async function createInvitation(
+  request: FastifyRequest<{
+    Params: { group_id: string };
+    Body: CreateInvitationRequest;
+  }>,
+  reply: FastifyReply
+) {
+  try {
+    const { type, pseudo, expires_in_hours = 24, max_uses = 1 } = request.body;
+
+    // Validate invitation type
+    if (type !== 'qr' && type !== 'pseudo') {
+      return reply.status(400).send({
+        success: false,
+        error: 'Invalid invitation type',
+        message: 'Type must be either "qr" or "pseudo"',
+      });
+    }
+
+    // Validate pseudo if type is pseudo
+    if (type === 'pseudo') {
+      if (!pseudo) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Pseudo required',
+          message: 'Pseudo is required for pseudo-based invitations',
+        });
+      }
+
+      if (!isValidPseudo(pseudo)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid pseudo format',
+          message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
+        });
+      }
+
+      // Check if pseudo exists in profiles
+      const { data: profile } = await request.supabaseClient
+        .from('profiles')
+        .select('user_id, pseudo')
+        .eq('pseudo', pseudo)
+        .single();
+
+      if (!profile) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Pseudo not found',
+          message: `No user found with pseudo "${pseudo}"`,
+        });
+      }
+
+      // Check if user is already a member
+      const { data: existing } = await request.supabaseClient
+        .from('memberships')
+        .select('id')
+        .eq('group_id', request.params.group_id)
+        .eq('user_id', profile.user_id)
+        .is('left_at', null)
+        .single();
+
+      if (existing) {
+        return reply.status(400).send({
+          success: false,
+          error: 'User already a member',
+          message: `User with pseudo "${pseudo}" is already a member of this group`,
+        });
+      }
+    }
+
+    // Calculate expiration
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + expires_in_hours);
+
+    // Create invitation
+    const invitationData: Record<string, unknown> = {
+      group_id: request.params.group_id,
+      created_by: request.membership?.id,
+      max_uses,
+      current_uses: 0,
+      expires_at: expiresAt.toISOString(),
+    };
+
+    if (type === 'qr') {
+      // Generate unique code
+      let code: string;
+      let codeExists = true;
+
+      // Try to generate unique code (max 10 attempts)
+      for (let i = 0; i < 10; i++) {
+        code = generateInvitationCode();
+        const { data } = await request.supabaseClient
+          .from('invitations')
+          .select('id')
+          .eq('code', code)
+          .single();
+
+        if (!data) {
+          codeExists = false;
+          invitationData.code = code;
+          break;
+        }
+      }
+
+      if (codeExists) {
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to generate unique code',
+          message: 'Please try again',
+        });
+      }
+    } else {
+      invitationData.pseudo = pseudo;
+    }
+
+    const { data: invitation, error } = await request.supabaseClient
+      .from('invitations')
+      .insert(invitationData)
+      .select('*')
+      .single();
+
+    if (error) {
+      request.log.error(error, 'Failed to create invitation');
+
+      // Handle unique constraint violation
+      if (error.code === '23505') {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invitation already exists',
+          message:
+            type === 'pseudo'
+              ? `An invitation for "${pseudo}" already exists`
+              : 'Code conflict, please try again',
+        });
+      }
+
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to create invitation',
+        message: error.message,
+      });
+    }
+
+    return reply.status(201).send({
+      success: true,
+      invitation,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in createInvitation');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get invitation details (public endpoint for QR code scanning)
+ */
+export async function getInvitation(
+  request: FastifyRequest<{ Params: { code_or_pseudo: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    const { code_or_pseudo } = request.params;
+
+    // Try to find by code first
+    // Use server client since this is a public endpoint
+    let { data: invitation, error } = await request.server.supabaseClient
+      .from('invitations')
+      .select(
+        `
+        *,
+        group:groups(id, name, type)
+      `
+      )
+      .eq('code', code_or_pseudo)
+      .is('revoked_at', null)
+      .maybeSingle();
+
+    // If not found by code, try by pseudo
+    if (!invitation) {
+      const result = await request.server.supabaseClient
+        .from('invitations')
+        .select(
+          `
+          *,
+          group:groups(id, name, type)
+        `
+        )
+        .eq('pseudo', code_or_pseudo)
+        .is('revoked_at', null)
+        .maybeSingle();
+
+      invitation = result.data;
+      error = result.error;
+    }
+
+    if (error || !invitation) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Invitation not found',
+        message: 'Invalid or revoked invitation code/pseudo',
+      });
+    }
+
+    // Check if expired
+    if (new Date(invitation.expires_at) < new Date()) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Invitation expired',
+        message: 'This invitation has expired',
+      });
+    }
+
+    // Check if max uses reached
+    if (invitation.current_uses >= invitation.max_uses) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Invitation fully used',
+        message: 'This invitation has reached its maximum number of uses',
+      });
+    }
+
+    return reply.send({
+      success: true,
+      invitation: {
+        id: invitation.id,
+        group: invitation.group,
+        expires_at: invitation.expires_at,
+        max_uses: invitation.max_uses,
+        current_uses: invitation.current_uses,
+      },
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in getInvitation');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Accept an invitation and join the group
+ */
+export async function acceptInvitation(
+  request: FastifyRequest<{
+    Params: { code_or_pseudo: string };
+    Body: AcceptInvitationRequest;
+  }>,
+  reply: FastifyReply
+) {
+  try {
+    await request.jwtVerify();
+
+    const { code_or_pseudo } = request.params;
+
+    // Find invitation
+    const { data: invitation, error: invError } = await request.supabaseClient
+      .from('invitations')
+      .select('*')
+      .or(`code.eq.${code_or_pseudo},pseudo.eq.${code_or_pseudo}`)
+      .is('revoked_at', null)
+      .single();
+
+    if (invError || !invitation) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Invitation not found',
+        message: 'Invalid or revoked invitation',
+      });
+    }
+
+    // Validate invitation
+    if (new Date(invitation.expires_at) < new Date()) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Invitation expired',
+      });
+    }
+
+    if (invitation.current_uses >= invitation.max_uses) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Invitation fully used',
+      });
+    }
+
+    // If invitation is by pseudo, verify user has that pseudo
+    if (invitation.pseudo) {
+      const { data: profile } = await request.supabaseClient
+        .from('profiles')
+        .select('pseudo')
+        .eq('user_id', request.user.sub)
+        .single();
+
+      if (!profile || profile.pseudo !== invitation.pseudo) {
+        return reply.status(403).send({
+          success: false,
+          error: 'Unauthorized',
+          message: `This invitation is for user with pseudo "${invitation.pseudo}"`,
+        });
+      }
+    }
+
+    // Check if already a member
+    const { data: existingMember } = await request.supabaseClient
+      .from('memberships')
+      .select('id')
+      .eq('group_id', invitation.group_id)
+      .eq('user_id', request.user.sub)
+      .is('left_at', null)
+      .single();
+
+    if (existingMember) {
+      return reply.status(400).send({
+        success: false,
+        error: 'Already a member',
+        message: 'You are already a member of this group',
+      });
+    }
+
+    // Create membership
+    const { data: membership, error: memberError } =
+      await request.supabaseClient
+        .from('memberships')
+        .insert({
+          group_id: invitation.group_id,
+          user_id: request.user.sub,
+          role_name: 'member',
+          importance: 50,
+        })
+        .select()
+        .single();
+
+    if (memberError) {
+      request.log.error(memberError, 'Failed to create membership');
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to join group',
+        message: memberError.message,
+      });
+    }
+
+    // Increment invitation uses
+    await request.supabaseClient
+      .from('invitations')
+      .update({ current_uses: invitation.current_uses + 1 })
+      .eq('id', invitation.id);
+
+    // Send notification to new member
+    await request.supabaseClient.from('notifications').insert({
+      membership_id: membership.id,
+      type: 'ping',
+      data: {
+        message: 'Welcome to the group!',
+        group_id: invitation.group_id,
+      },
+    });
+
+    return reply.send({
+      success: true,
+      membership,
+      message: 'Successfully joined the group',
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in acceptInvitation');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * List all active invitations for a group
+ */
+export async function listInvitations(
+  request: FastifyRequest<{ Params: { group_id: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    const { data: invitations, error } = await request.supabaseClient
+      .from('invitations')
+      .select(
+        `
+        *,
+        creator:memberships!invitations_created_by_fkey(
+          id,
+          role_name,
+          profile:profiles(display_name, pseudo, avatar_url)
+        )
+      `
+      )
+      .eq('group_id', request.params.group_id)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      request.log.error(error, 'Failed to fetch invitations');
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to fetch invitations',
+        message: error.message,
+      });
+    }
+
+    // Filter out expired invitations
+    const activeInvitations = (invitations || []).filter(
+      (inv) => new Date(inv.expires_at) > new Date()
+    );
+
+    return reply.send({
+      success: true,
+      invitations: activeInvitations,
+      total: activeInvitations.length,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in listInvitations');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Revoke an invitation
+ */
+export async function revokeInvitation(
+  request: FastifyRequest<{
+    Params: { group_id: string; invitation_id: string };
+  }>,
+  reply: FastifyReply
+) {
+  try {
+    const { data: invitation, error } = await request.supabaseClient
+      .from('invitations')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', request.params.invitation_id)
+      .eq('group_id', request.params.group_id)
+      .select()
+      .single();
+
+    if (error || !invitation) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Invitation not found',
+      });
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Invitation revoked successfully',
+      invitation,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in revokeInvitation');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}

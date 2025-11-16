@@ -34,6 +34,7 @@ CREATE TYPE calendar_visibility AS ENUM ('full', 'busy', 'hidden');
 CREATE TABLE profiles (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     display_name TEXT NOT NULL,
+    pseudo TEXT UNIQUE,
     avatar_url TEXT,
     pin_hash TEXT, -- Hashed PIN for hub/monitor access
     locale TEXT DEFAULT 'en' CHECK (locale IN ('en', 'fr')),
@@ -43,6 +44,7 @@ CREATE TABLE profiles (
 
 -- Index for faster lookups
 CREATE INDEX idx_profiles_display_name ON profiles(display_name);
+CREATE INDEX idx_profiles_pseudo ON profiles(pseudo);
 
 -- =====================================================
 -- GROUPS

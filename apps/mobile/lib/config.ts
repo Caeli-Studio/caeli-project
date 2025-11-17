@@ -63,6 +63,10 @@ export const API_ENDPOINTS = {
 } as const;
 
 // OAuth redirect URL for mobile app
+// Note: This is now handled by AuthSession.makeRedirectUri() in auth.service.ts
+// which automatically uses the correct URL for each platform:
+// - iOS: caeli://auth/callback
+// - Android: https://auth.expo.io/@your-username/caeli/auth/callback (Expo proxy)
 export const OAUTH_REDIRECT_URL = 'caeli://auth/callback';
 
 // Session refresh threshold (in seconds before expiry)

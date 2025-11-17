@@ -20,14 +20,19 @@ export default function AuthCallbackScreen() {
   const [isProcessing, setIsProcessing] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Debug logging for Android
+  // Debug logging for all platforms
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      console.log(
-        '[Android OAuth Debug] Callback params:',
-        JSON.stringify(params)
-      );
-    }
+    console.log('[OAuth Callback] Platform:', Platform.OS);
+    console.log(
+      '[OAuth Callback] All params:',
+      JSON.stringify(params, null, 2)
+    );
+    console.log('[OAuth Callback] Code:', params.code);
+    console.log('[OAuth Callback] Error:', params.error);
+    console.log(
+      '[OAuth Callback] Error Description:',
+      params.error_description
+    );
   }, [params]);
 
   const handleCallback = React.useCallback(async () => {

@@ -1,3 +1,4 @@
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
@@ -10,11 +11,7 @@ import type {
   User,
 } from '@/types/auth';
 
-import {
-  API_ENDPOINTS,
-  SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
-} from '@/lib/config';
+import { API_ENDPOINTS, SESSION_REFRESH_THRESHOLD } from '@/lib/config';
 import { storage } from '@/lib/storage';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -32,8 +29,17 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
-      // Debug: Log the URL being called
-      console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
+      // Use AuthSession.makeRedirectUri to handle platform differences
+      // Android uses a proxy URL, iOS uses custom scheme
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: 'caeli',
+        path: 'auth/callback',
+      });
+
+      // Debug: Log the URLs being used
+      console.log('[OAuth Debug] Platform:', Platform.OS);
+      console.log('[OAuth Debug] Redirect URI:', redirectUri);
+      console.log('[OAuth Debug] API Endpoint:', API_ENDPOINTS.GOOGLE_AUTH);
 
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
@@ -42,7 +48,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirectUrl: OAUTH_REDIRECT_URL,
+          redirectUrl: redirectUri,
         }),
       });
 
@@ -52,88 +58,82 @@ class AuthService {
         throw new Error(data.message || 'Failed to initiate Google sign-in');
       }
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Opening URL:', data.url);
-        console.log('[Android OAuth Debug] Redirect URL:', OAUTH_REDIRECT_URL);
-      }
+      console.log('[OAuth Debug] Opening OAuth URL');
 
-      // Open the OAuth URL in a browser with Android-specific options
-      const browserOptions: WebBrowser.WebBrowserOpenOptions = {
-        showTitle: false,
-        enableBarCollapsing: false,
-        // For Android, ensure we use a browser that can redirect back
-        ...(Platform.OS === 'android' && {
-          showInRecents: true,
-        }),
-      };
-
+      // Open the OAuth URL in a browser
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        OAUTH_REDIRECT_URL,
-        browserOptions
+        redirectUri
       );
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Result type:', result.type);
-        if (result.type === 'success') {
-          console.log('[Android OAuth Debug] Result URL:', result.url);
-        }
-      }
+      console.log('[OAuth Debug] Result type:', result.type);
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);
         throw new Error('Authentication was cancelled or failed');
       }
 
-      // Parse the URL - Supabase returns tokens in hash fragment
-      const url = new URL(result.url);
+      console.log('[OAuth Debug] Result URL:', result.url);
 
-      // Check if we got tokens directly in the hash (PKCE flow)
-      if (url.hash) {
-        const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove '#'
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
+      // Parse the URL to extract parameters
+      const resultUrl = new URL(result.url);
+      const params: Record<string, string> = {};
 
-        if (accessToken) {
-          // Parse the session from hash params
-          const session = {
-            access_token: accessToken,
-            refresh_token: refreshToken || '',
-            expires_in: parseInt(hashParams.get('expires_in') || '3600', 10),
-            expires_at: parseInt(
-              hashParams.get('expires_at') || String(Date.now() / 1000 + 3600),
-              10
-            ),
-            token_type: hashParams.get('token_type') || 'bearer',
+      // Check hash params first (PKCE flow)
+      if (resultUrl.hash) {
+        const hashParams = new URLSearchParams(resultUrl.hash.substring(1));
+        hashParams.forEach((value, key) => {
+          params[key] = value;
+        });
+      }
+
+      // Also check query params (code flow)
+      resultUrl.searchParams.forEach((value, key) => {
+        params[key] = value;
+      });
+
+      console.log('[OAuth Debug] Parsed params:', Object.keys(params));
+
+      // Check if we got tokens directly (PKCE flow)
+      if (params.access_token) {
+        console.log('[OAuth Debug] Received access token directly');
+        const session = {
+          access_token: params.access_token,
+          refresh_token: params.refresh_token || '',
+          expires_in: parseInt(params.expires_in || '3600', 10),
+          expires_at: parseInt(
+            params.expires_at || String(Date.now() / 1000 + 3600),
+            10
+          ),
+          token_type: params.token_type || 'bearer',
+        };
+
+        // Save session
+        await storage.saveSession(session);
+
+        // Get user info from the access token
+        const userResponse = await this.getSession();
+
+        if (userResponse.success && userResponse.user) {
+          await storage.saveUser(userResponse.user);
+          this.scheduleTokenRefresh(session);
+
+          return {
+            success: true,
+            session,
+            user: userResponse.user,
           };
-
-          // Save session
-          await storage.saveSession(session);
-
-          // Get user info from the access token
-          const userResponse = await this.getSession();
-
-          if (userResponse.success && userResponse.user) {
-            await storage.saveUser(userResponse.user);
-            this.scheduleTokenRefresh(session);
-
-            return {
-              success: true,
-              session,
-              user: userResponse.user,
-            };
-          }
         }
       }
 
       // Otherwise, try to get authorization code (code flow)
-      const code = url.searchParams.get('code');
+      const code = params.code;
 
       if (!code) {
-        const error = url.searchParams.get('error');
-        const errorDescription = url.searchParams.get('error_description');
+        const error = params.error;
+        const errorDescription = params.error_description;
+
+        console.error('[OAuth Debug] No code received. Params:', params);
 
         throw new Error(
           errorDescription ||
@@ -141,6 +141,8 @@ class AuthService {
             'No authorization code or tokens received'
         );
       }
+
+      console.log('[OAuth Debug] Received code, exchanging for session');
 
       // Exchange the code for a session
       const authResponse = await this.exchangeCodeForSession(code);

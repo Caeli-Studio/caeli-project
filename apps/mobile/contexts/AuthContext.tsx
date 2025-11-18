@@ -1,9 +1,20 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-import { authService } from '@/services/auth.service';
-
 import type { User, AuthResponse } from '@/types/auth';
 
+import { authService } from '@/services/auth.service';
+
+// ⚠️ DEVELOPMENT ONLY: Bypass authentication
+const BYPASS_AUTH = process.env.EXPO_PUBLIC_BYPASS_AUTH === 'true';
+
+// Mock user for development
+const MOCK_USER: User = {
+  id: 'mock-user-dev-12345',
+  email: 'dev@caeli.com',
+  name: 'Dev User',
+  avatar: undefined,
+  provider: 'mock',
+};
 
 interface AuthContextType {
   user: User | null;
@@ -29,6 +40,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initializeAuth = async () => {
     try {
       setIsLoading(true);
+
+      // ⚠️ DEVELOPMENT ONLY: Bypass authentication
+      if (BYPASS_AUTH) {
+        console.log('🚨 AUTH BYPASS ENABLED - Development mode');
+        setUser(MOCK_USER);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        return;
+      }
 
       // Initialize the auth service (sets up auto-refresh)
       await authService.initialize();
@@ -64,6 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async (): Promise<AuthResponse> => {
     try {
       setIsLoading(true);
+
+      // ⚠️ DEVELOPMENT ONLY: Bypass authentication
+      if (BYPASS_AUTH) {
+        console.log('🚨 AUTH BYPASS - Mock Google sign-in');
+        setUser(MOCK_USER);
+        setIsAuthenticated(true);
+        return {
+          success: true,
+          user: MOCK_USER,
+        };
+      }
+
       const result = await authService.signInWithGoogle();
 
       if (result.success && result.user) {

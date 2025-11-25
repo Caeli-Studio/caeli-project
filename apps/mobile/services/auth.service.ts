@@ -84,6 +84,17 @@ class AuthService {
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);
+
+        // On Android, sometimes the redirect doesn't work in dev mode
+        // but the user still authenticated. Let's provide helpful guidance.
+        if (Platform.OS === 'android' && result.type === 'dismiss') {
+          throw new Error(
+            'OAuth redirect failed. Make sure you:\n' +
+              '1. Added caeli://auth/callback to Supabase redirect URLs\n' +
+              '2. Rebuilt the app with: npx expo run:android'
+          );
+        }
+
         throw new Error('Authentication was cancelled or failed');
       }
 

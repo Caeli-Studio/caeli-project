@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 
 import Navbar from '../components/navbar';
@@ -36,6 +37,10 @@ const Home: React.FC = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [myMembershipId, setMyMembershipId] = useState<string | null>(null);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(
+    null
+  );
 
   // Load initial data
   useEffect(() => {
@@ -119,6 +124,53 @@ const Home: React.FC = () => {
     }
 
     setFilteredTasks(filtered);
+  };
+
+  const openStatusModal = (task: TaskWithDetails) => {
+    setSelectedTask(task);
+    setStatusModalVisible(true);
+  };
+
+  const closeStatusModal = () => {
+    setStatusModalVisible(false);
+    setSelectedTask(null);
+  };
+
+  const changeTaskStatus = async (newStatus: TaskStatus) => {
+    if (!selectedGroupId || !selectedTask) return;
+
+    try {
+      closeStatusModal();
+
+      const response = await taskService.updateTask(
+        selectedGroupId,
+        selectedTask.id,
+        { status: newStatus }
+      );
+
+      if (response.success) {
+        // Reload tasks
+        await loadTasks(selectedGroupId);
+
+        const statusLabels: Record<TaskStatus, string> = {
+          open: 'À faire',
+          done: 'Terminée',
+          cancelled: 'Annulée',
+        };
+
+        Alert.alert(
+          'Succès',
+          `Tâche marquée comme "${statusLabels[newStatus]}" !`
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Impossible de changer le statut';
+      Alert.alert('Erreur', errorMessage);
+    }
   };
 
   const toggleTaskComplete = async (task: TaskWithDetails) => {
@@ -360,6 +412,7 @@ const Home: React.FC = () => {
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => toggleTaskComplete(item)}
+                onLongPress={() => openStatusModal(item)}
                 style={[styles.task, item.status === 'done' && styles.taskDone]}
               >
                 <View style={styles.taskLeft}>
@@ -433,6 +486,58 @@ const Home: React.FC = () => {
         >
           <Ionicons name="add" size={30} color="#fff" />
         </TouchableOpacity>
+
+        {/* Status Change Modal */}
+        <Modal
+          visible={statusModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeStatusModal}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={closeStatusModal}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Changer le statut</Text>
+              <Text style={styles.modalSubtitle}>
+                {selectedTask?.title || ''}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.statusOption, styles.statusOpen]}
+                onPress={() => changeTaskStatus('open')}
+              >
+                <Ionicons name="ellipse-outline" size={24} color="#FF9800" />
+                <Text style={styles.statusOptionText}>À faire</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.statusOption, styles.statusDone]}
+                onPress={() => changeTaskStatus('done')}
+              >
+                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                <Text style={styles.statusOptionText}>Terminée</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.statusOption, styles.statusCancelled]}
+                onPress={() => changeTaskStatus('cancelled')}
+              >
+                <Ionicons name="close-circle" size={24} color="#F44336" />
+                <Text style={styles.statusOptionText}>Annulée</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={closeStatusModal}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         <Navbar />
       </View>
@@ -628,6 +733,77 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 5,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  statusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  statusOpen: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  statusDone: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  statusCancelled: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  statusOptionText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 15,
+    fontWeight: '500',
+  },
+  modalCancelButton: {
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });
 

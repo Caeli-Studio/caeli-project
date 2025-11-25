@@ -32,12 +32,18 @@ class ApiService {
   async post<T>(endpoint: string, data?: unknown): Promise<T> {
     const accessToken = await storage.getAccessToken();
 
+    const headers: Record<string, string> = {
+      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    };
+
+    // Only set Content-Type if we have data
+    if (data !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-      },
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
 

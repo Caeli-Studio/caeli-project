@@ -173,6 +173,49 @@ const Home: React.FC = () => {
     }
   };
 
+  const deleteTask = async () => {
+    if (!selectedGroupId || !selectedTask) return;
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Confirmer la suppression',
+      `Êtes-vous sûr de vouloir supprimer la tâche "${selectedTask.title}" ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              closeStatusModal();
+
+              const response = await taskService.deleteTask(
+                selectedGroupId,
+                selectedTask.id
+              );
+
+              if (response.success) {
+                // Reload tasks
+                await loadTasks(selectedGroupId);
+                Alert.alert('Succès', 'Tâche supprimée avec succès !');
+              }
+            } catch (error) {
+              console.error('Failed to delete task:', error);
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : 'Impossible de supprimer la tâche';
+              Alert.alert('Erreur', errorMessage);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const toggleTaskComplete = async (task: TaskWithDetails) => {
     if (!selectedGroupId) return;
 
@@ -530,6 +573,14 @@ const Home: React.FC = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[styles.statusOption, styles.statusDelete]}
+                onPress={deleteTask}
+              >
+                <Ionicons name="trash-outline" size={24} color="#E74C3C" />
+                <Text style={styles.statusDeleteText}>Supprimer la tâche</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={closeStatusModal}
               >
@@ -787,11 +838,23 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#F44336',
   },
+  statusDelete: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#E74C3C',
+    backgroundColor: '#ffe5e5',
+    marginTop: 10,
+  },
   statusOptionText: {
     fontSize: 16,
     color: '#333',
     marginLeft: 15,
     fontWeight: '500',
+  },
+  statusDeleteText: {
+    fontSize: 16,
+    color: '#E74C3C',
+    marginLeft: 15,
+    fontWeight: '600',
   },
   modalCancelButton: {
     marginTop: 10,

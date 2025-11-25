@@ -105,16 +105,9 @@ export async function getTasks(
         *,
         assignments:task_assignments(
           *,
-          member:memberships(
-            *,
-            profile:profiles(*)
-          )
+          member:memberships(*)
         ),
-        creator:memberships!tasks_created_by_fkey(
-          *,
-          profile:profiles(*)
-        ),
-        template:task_templates(*)
+        creator:memberships!tasks_created_by_fkey(*)
       `
       )
       .eq('group_id', request.params.group_id);
@@ -176,9 +169,48 @@ export async function getTasks(
       });
     }
 
-    // Enrich tasks with permissions
-    const enrichedTasks: TaskResponse[] = (tasks || []).map((task) => ({
+    // Get all unique user_ids from memberships to fetch profiles
+    const userIds = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (tasks || []).forEach((task: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      task.assignments?.forEach((a: any) => {
+        if (a.member?.user_id) userIds.add(a.member.user_id);
+      });
+      if (task.creator?.user_id) userIds.add(task.creator.user_id);
+    });
+
+    // Fetch profiles for all users
+    const { data: profiles } = await request.supabaseClient
+      .from('profiles')
+      .select('*')
+      .in('user_id', Array.from(userIds));
+
+    const profileMap = new Map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (profiles || []).map((p: any) => [p.user_id, p])
+    );
+
+    // Enrich tasks with profiles and permissions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enrichedTasks: TaskResponse[] = (tasks || []).map((task: any) => ({
       ...task,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assignments: task.assignments?.map((a: any) => ({
+        ...a,
+        member: a.member
+          ? {
+              ...a.member,
+              profile: profileMap.get(a.member.user_id),
+            }
+          : undefined,
+      })),
+      creator: task.creator
+        ? {
+            ...task.creator,
+            profile: profileMap.get(task.creator.user_id),
+          }
+        : undefined,
       can_complete: task.assignments?.some(
         (a: { membership_id: string }) =>
           a.membership_id === request.membership?.id
@@ -219,16 +251,9 @@ export async function getTask(
         *,
         assignments:task_assignments(
           *,
-          member:memberships(
-            *,
-            profile:profiles(*)
-          )
+          member:memberships(*)
         ),
-        creator:memberships!tasks_created_by_fkey(
-          *,
-          profile:profiles(*)
-        ),
-        template:task_templates(*)
+        creator:memberships!tasks_created_by_fkey(*)
       `
       )
       .eq('id', request.params.task_id)
@@ -242,8 +267,48 @@ export async function getTask(
       });
     }
 
-    const response: TaskResponse = {
+    // Get all unique user_ids from memberships to fetch profiles
+    const userIds = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    task.assignments?.forEach((a: any) => {
+      if (a.member?.user_id) userIds.add(a.member.user_id);
+    });
+    if (task.creator?.user_id) userIds.add(task.creator.user_id);
+
+    // Fetch profiles for all users
+    const { data: profiles } = await request.supabaseClient
+      .from('profiles')
+      .select('*')
+      .in('user_id', Array.from(userIds));
+
+    const profileMap = new Map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (profiles || []).map((p: any) => [p.user_id, p])
+    );
+
+    // Enrich task with profiles
+    const enrichedTask = {
       ...task,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assignments: task.assignments?.map((a: any) => ({
+        ...a,
+        member: a.member
+          ? {
+              ...a.member,
+              profile: profileMap.get(a.member.user_id),
+            }
+          : undefined,
+      })),
+      creator: task.creator
+        ? {
+            ...task.creator,
+            profile: profileMap.get(task.creator.user_id),
+          }
+        : undefined,
+    };
+
+    const response: TaskResponse = {
+      ...enrichedTask,
       can_complete: task.assignments?.some(
         (a: { membership_id: string }) =>
           a.membership_id === request.membership?.id

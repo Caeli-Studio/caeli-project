@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -10,9 +11,15 @@ import {
   Dimensions,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 
+import type { GetGroupsResponse } from '@/types/group';
+import type { TaskWithDetails } from '@/types/task';
+
 import Navbar from '@/components/navbar';
+import { apiService } from '@/services/api.service';
+import { taskService } from '@/services/task.service';
 
 const { width } = Dimensions.get('window');
 
@@ -24,23 +31,20 @@ type RouteParams = {
 };
 
 const Assignement = () => {
+  const router = useRouter();
   const [activePage, setActivePage] = useState(0);
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
-  const [taskAssignement, setTaskAssignement] = useState('');
-  const [taskImportance, setTaskImportance] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
-  const [tasks, setTasks] = useState<
-    {
-      name: string;
-      description: string;
-      assignement: string;
-      importance: string;
-      date?: string;
-    }[]
-  >([]);
+  // Tasks fetched from API
+  const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
 
-  const [importanceOpen, setImportanceOpen] = useState(false);
+  // Current selected group
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
+
   const scrollViewRef = useRef<ScrollView>(null);
   const route = useRoute<RouteProp<RouteParams, 'assignement'>>();
   const dateSelected = route.params?.selectedDate;
@@ -49,11 +53,18 @@ const Assignement = () => {
     dateSelected || new Date().toISOString().split('T')[0]
   );
 
-  const importanceOptions = [
-    { label: 'Faible', value: 'faible', color: 'green' },
-    { label: 'Moyenne', value: 'moyenne', color: 'orange' },
-    { label: 'Élevée', value: 'elevee', color: 'red' },
-  ];
+  // Load user's groups on mount
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  // Load tasks when group is selected
+  useEffect(() => {
+    if (selectedGroupId) {
+      loadTasks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroupId]);
 
   useEffect(() => {
     if (route.params?.page === 1) {
@@ -62,8 +73,47 @@ const Assignement = () => {
     }
   }, [route.params]);
 
+  const loadGroups = async () => {
+    try {
+      const response = await apiService.get<GetGroupsResponse>('/api/groups');
+      if (response.success && response.data.length > 0) {
+        setGroups(response.data);
+        setSelectedGroupId(response.data[0].group.id);
+      }
+    } catch (error) {
+      console.error('Failed to load groups:', error);
+      Alert.alert('Erreur', 'Impossible de charger les foyers');
+    }
+  };
+
+  const loadTasks = async () => {
+    if (!selectedGroupId) return;
+
+    setLoadingTasks(true);
+    try {
+      const response = await taskService.getTasks(selectedGroupId, {
+        status: 'open',
+        limit: 50,
+      });
+
+      if (response.success) {
+        setTasks(response.tasks);
+      }
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      Alert.alert('Erreur', 'Impossible de charger les tâches');
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
   const pages = [
-    { text: "Vous n'avez aucune tâche de prévue pour le moment" },
+    {
+      text:
+        tasks.length === 0
+          ? "Vous n'avez aucune tâche de prévue pour le moment"
+          : 'Mes tâches',
+    },
     { text: 'Nouvelle tâche' },
   ];
 
@@ -76,43 +126,99 @@ const Assignement = () => {
     setActivePage(pageIndex);
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!taskName.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer le nom de la tâche.');
       return;
     }
 
-    const newTask = {
-      name: taskName,
-      description: taskDescription,
-      assignement: taskAssignement,
-      importance: taskImportance,
-      date: taskDate,
-    };
+    if (!selectedGroupId) {
+      Alert.alert('Erreur', 'Aucun foyer sélectionné');
+      return;
+    }
 
-    setTasks((prev) => [...prev, newTask]);
+    setLoading(true);
 
-    setTaskName('');
-    setTaskDescription('');
-    setTaskAssignement('');
-    setTaskImportance('');
+    try {
+      const dueDate = taskDate ? `${taskDate}T23:59:59Z` : undefined;
 
-    // Revenir à la première page
-    setActivePage(0);
-    scrollViewRef.current?.scrollTo({ x: 0, animated: true });
+      const response = await taskService.createTask(selectedGroupId, {
+        title: taskName.trim(),
+        description: taskDescription.trim() || undefined,
+        due_at: dueDate,
+      });
+
+      if (response.success) {
+        Alert.alert('Succès', 'Tâche créée avec succès !');
+
+        setTaskName('');
+        setTaskDescription('');
+
+        await loadTasks();
+
+        setActivePage(0);
+        scrollViewRef.current?.scrollTo({ x: 0, animated: true });
+      }
+    } catch (error: unknown) {
+      console.error('Failed to create task:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Impossible de créer la tâche';
+      Alert.alert('Erreur', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <MaterialIcons name="settings" size={30} color="#FFFFFF" />
+        <TouchableOpacity onPress={() => router.push('/organisation')}>
+          <MaterialIcons name="group" size={30} color="#FFFFFF" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <MaterialIcons name="logout" size={30} color="#FFFFFF" />
+        <TouchableOpacity onPress={() => router.push('/profile')}>
+          <MaterialIcons name="person" size={30} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+
+      {/* Group Selector */}
+      {groups.length > 0 && (
+        <View style={styles.groupSelector}>
+          <Text style={styles.groupLabel}>Foyer:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {groups.map((item) => (
+              <TouchableOpacity
+                key={item.group.id}
+                style={[
+                  styles.groupChip,
+                  selectedGroupId === item.group.id && styles.groupChipActive,
+                ]}
+                onPress={() => setSelectedGroupId(item.group.id)}
+              >
+                <Text
+                  style={[
+                    styles.groupChipText,
+                    selectedGroupId === item.group.id &&
+                      styles.groupChipTextActive,
+                  ]}
+                >
+                  {item.group.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Contenu centré */}
       <View style={styles.centeredContent}>
@@ -131,53 +237,43 @@ const Assignement = () => {
             {pages.map((page, index) => (
               <View style={styles.innerContent} key={index}>
                 {index === 0 ? (
-                  tasks.length === 0 ? (
+                  loadingTasks ? (
+                    <ActivityIndicator size="large" color="#898989" />
+                  ) : tasks.length === 0 ? (
                     <Text style={styles.message}>{page.text}</Text>
                   ) : (
-                    <ScrollView
-                      style={{ width: '100%', maxHeight: 250 }} // hauteur limitée pour scroll
-                      showsVerticalScrollIndicator={true}
-                    >
-                      {tasks.map((task, i) => (
-                        <View key={i} style={styles.taskBox}>
-                          <Text style={styles.taskTitle}>{task.name}</Text>
-                          {task.description && (
-                            <Text style={styles.taskDesc}>
-                              {task.description}
-                            </Text>
-                          )}
-                          {task.assignement && (
-                            <Text style={styles.taskAssign}>
-                              👤 {task.assignement}
-                            </Text>
-                          )}
-
-                          {task.importance && (
-                            <View style={styles.importanceRow}>
-                              <View
-                                style={[
-                                  styles.importanceDot,
-                                  {
-                                    backgroundColor:
-                                      task.importance === 'Faible'
-                                        ? 'green'
-                                        : task.importance === 'Moyenne'
-                                          ? 'orange'
-                                          : 'red',
-                                  },
-                                ]}
-                              />
-                              <Text style={styles.taskImportanceText}>
-                                {task.importance}
+                    <>
+                      <Text style={styles.pageTitle}>{page.text}</Text>
+                      <ScrollView
+                        style={{ width: '100%', maxHeight: 270 }}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {tasks.map((task) => (
+                          <View key={task.id} style={styles.taskBox}>
+                            <Text style={styles.taskTitle}>{task.title}</Text>
+                            {task.description && (
+                              <Text style={styles.taskDesc}>
+                                {task.description}
                               </Text>
-                            </View>
-                          )}
-
-                          {/* Date sur une ligne séparée */}
-                          <Text style={styles.taskDate}>📅 {task.date}</Text>
-                        </View>
-                      ))}
-                    </ScrollView>
+                            )}
+                            {task.assigned_members &&
+                              task.assigned_members.length > 0 && (
+                                <Text style={styles.taskAssign}>
+                                  👤{' '}
+                                  {task.assigned_members
+                                    .map((m) => m.profile.display_name)
+                                    .join(', ')}
+                                </Text>
+                              )}
+                            {task.due_at && (
+                              <Text style={styles.taskDate}>
+                                📅 {formatDate(task.due_at)}
+                              </Text>
+                            )}
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </>
                   )
                 ) : (
                   // Deuxième page : formulaire
@@ -186,9 +282,10 @@ const Assignement = () => {
 
                     <TextInput
                       style={styles.input}
-                      placeholder="Nom de la tâche"
+                      placeholder="Nom de la tâche *"
                       value={taskName}
                       onChangeText={setTaskName}
+                      editable={!loading}
                     />
 
                     <TextInput
@@ -196,52 +293,32 @@ const Assignement = () => {
                       placeholder="Description de la tâche ..."
                       value={taskDescription}
                       onChangeText={setTaskDescription}
+                      multiline
+                      numberOfLines={2}
+                      editable={!loading}
                     />
 
                     <TextInput
                       style={styles.input}
-                      placeholder="Assigner à"
-                      value={taskAssignement}
-                      onChangeText={setTaskAssignement}
+                      placeholder="Date d'échéance (AAAA-MM-JJ)"
+                      value={taskDate}
+                      editable={false}
                     />
 
-                    <TouchableOpacity
-                      style={styles.input}
-                      onPress={() => setImportanceOpen(!importanceOpen)}
-                    >
-                      <Text>{taskImportance || 'Importance'}</Text>
-                    </TouchableOpacity>
-
-                    {importanceOpen && (
-                      <View style={styles.dropdown}>
-                        {importanceOptions.map((option) => (
-                          <TouchableOpacity
-                            key={option.value}
-                            style={styles.dropdownOption}
-                            onPress={() => {
-                              setTaskImportance(option.label);
-                              setImportanceOpen(false);
-                            }}
-                          >
-                            <View
-                              style={[
-                                styles.colorCircle,
-                                { backgroundColor: option.color },
-                              ]}
-                            />
-                            <Text style={{ marginLeft: 8 }}>
-                              {option.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
+                    <Text style={styles.noteText}>
+                      💡 Assignation de membres : à venir
+                    </Text>
 
                     <TouchableOpacity
                       style={styles.buttonAdd}
                       onPress={handleAddTask}
+                      disabled={loading}
                     >
-                      <Text style={styles.buttonText}>Ajouter la tâche</Text>
+                      {loading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.buttonText}>Créer la tâche</Text>
+                      )}
                     </TouchableOpacity>
                   </>
                 )}
@@ -277,6 +354,41 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
 
+  groupSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
+  },
+
+  groupLabel: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    marginRight: 10,
+  },
+
+  groupChip: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+
+  groupChipActive: {
+    backgroundColor: '#898989',
+  },
+
+  groupChipText: {
+    color: '#898989',
+    fontWeight: '600',
+  },
+
+  groupChipTextActive: {
+    color: '#FFF',
+  },
+
   centeredContent: {
     flex: 1,
     justifyContent: 'center',
@@ -300,12 +412,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+
   message: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#898989',
     textAlign: 'center',
     marginBottom: 12,
+  },
+
+  noteText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+    fontStyle: 'italic',
   },
 
   input: {
@@ -323,6 +449,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 6,
+    minWidth: 150,
+    alignItems: 'center',
   },
 
   buttonText: {
@@ -346,31 +474,6 @@ const styles = StyleSheet.create({
 
   activeDot: {
     backgroundColor: '#898989',
-  },
-
-  dropdown: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 10,
-    marginTop: 5,
-    zIndex: 100,
-  },
-
-  dropdownOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-
-  colorCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 6,
   },
 
   taskBox: {
@@ -401,25 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     marginTop: 4,
-  },
-
-  importanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-
-  importanceDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-
-  taskImportanceText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 6,
   },
 
   taskDate: {

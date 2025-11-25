@@ -222,9 +222,49 @@ statusDeleteText: {
 
 ---
 
-## 🐛 Bugs Connus
+## 🐛 Bugs Connus et Corrections
 
-**Aucun bug connu pour le moment.**
+### ✅ Bug Corrigé: Content-Type vide dans DELETE
+
+**Problème**: Erreur 400 "Body cannot be empty when content-type is set to 'application/json'" lors de l'appel DELETE.
+
+**Cause**: Le service API envoyait toujours le header `Content-Type: application/json` même pour les requêtes DELETE qui n'ont pas de body.
+
+**Solution**: Modification du service API pour ne pas inclure le header `Content-Type` dans les requêtes DELETE.
+
+```typescript
+// Avant
+async delete<T>(endpoint: string): Promise<T> {
+  const accessToken = await storage.getAccessToken();
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    },
+  });
+  // ...
+}
+
+// Après
+async delete<T>(endpoint: string): Promise<T> {
+  const accessToken = await storage.getAccessToken();
+
+  const headers: Record<string, string> = {
+    ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+  };
+
+  // DELETE requests typically don't have a body, so don't set Content-Type
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers,
+  });
+  // ...
+}
+```
+
+**Note**: Ce bug est similaire au bug corrigé dans US-EditStatus pour la méthode POST.
 
 Potentiels à surveiller:
 

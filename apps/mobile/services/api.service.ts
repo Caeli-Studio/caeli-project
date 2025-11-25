@@ -82,12 +82,15 @@ class ApiService {
   async delete<T>(endpoint: string): Promise<T> {
     const accessToken = await storage.getAccessToken();
 
+    const headers: Record<string, string> = {
+      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    };
+
+    // DELETE requests typically don't have a body, so don't set Content-Type
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-      },
+      headers,
     });
 
     if (!response.ok) {

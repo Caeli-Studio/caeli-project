@@ -1,3 +1,6 @@
+# Build output
+dist/
+
 # Coverage directory used by tools like vitest
 coverage/
 

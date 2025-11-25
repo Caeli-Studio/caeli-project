@@ -122,7 +122,10 @@ jobs:
 
       - name: Upload backend build artifacts
         uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
         with:
           name: backend-dist
           path: apps/backend/dist
           retention-days: 7
+          if-no-files-found: warn

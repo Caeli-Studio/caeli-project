@@ -81,10 +81,20 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+        env:
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_KEY: test-service-key
+          SUPABASE_JWT_SECRET: test-jwt-secret-key-with-at-least-32-characters
 
       - name: Generate coverage report
         run: pnpm test:coverage
         continue-on-error: true
+        env:
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_KEY: test-service-key
+          SUPABASE_JWT_SECRET: test-jwt-secret-key-with-at-least-32-characters
 
   build:
     name: Build

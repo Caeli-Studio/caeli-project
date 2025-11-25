@@ -1,129 +1,55 @@
-name: Pull Request Checks
+name: PR Checks
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-env:
-  NODE_VERSION: '18'
-  PNPM_VERSION: '8'
-
 jobs:
-  # Job 1: PR Information
-  pr-info:
-    name: PR Information
+  pr-title-check:
+    name: PR Title Check
     runs-on: ubuntu-latest
     steps:
-      - name: PR Details
-        run: |
-          echo "📋 Pull Request: #${{ github.event.pull_request.number }}"
-          echo "👤 Author: ${{ github.event.pull_request.user.login }}"
-          echo "🌿 Branch: ${{ github.head_ref }} → ${{ github.base_ref }}"
-          echo "📝 Title: ${{ github.event.pull_request.title }}"
-
-  # Job 2: Quick validation
-  validate:
-    name: Quick Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Check PR title follows conventional commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm type-check
-
-      - name: Format check
-        run: pnpm format:check
-
-  # Job 3: Backend tests
-  test-backend:
-    name: Backend Tests
+  size-label:
+    name: PR Size Labeler
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Label PR by size
+        uses: codelytv/pr-size-labeler@v1
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run backend tests with coverage
-        run: pnpm --filter @caeli/backend test:coverage
-
-      - name: Comment coverage on PR
-        uses: romeovs/lcov-reporter-action@v0.3.1
-        if: github.event_name == 'pull_request'
-        with:
-          lcov-file: ./apps/backend/coverage/lcov.info
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          delete-old-comments: true
-
-  # Job 4: Build check
-  build:
-    name: Build Check
-    runs-on: ubuntu-latest
-    needs: [validate, test-backend]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build backend
-        run: pnpm --filter @caeli/backend build
-
-      - name: Build success
-        run: echo "✅ Build completed successfully"
-
-  # Job 5: PR Status Summary
-  pr-status:
-    name: PR Status Summary
-    runs-on: ubuntu-latest
-    needs: [validate, test-backend, build]
-    if: always()
-    steps:
-      - name: Check job status
-        run: |
-          if [ "${{ needs.validate.result }}" == "success" ] && \
-             [ "${{ needs.test-backend.result }}" == "success" ] && \
-             [ "${{ needs.build.result }}" == "success" ]; then
-            echo "✅ All PR checks passed!"
-            echo "This PR is ready for review."
-          else
-            echo "❌ Some checks failed"
-            echo "Please review the failed jobs above"
-            exit 1
-          fi
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_label: 'size/xs'
+          xs_max_size: '10'
+          s_label: 'size/s'
+          s_max_size: '100'
+          m_label: 'size/m'
+          m_max_size: '500'
+          l_label: 'size/l'
+          l_max_size: '1000'
+          xl_label: 'size/xl'
+          fail_if_xl: 'false'

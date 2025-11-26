@@ -39,7 +39,7 @@ export function generateHubCode(length = 8): string {
 /**
  * Generate a random invitation code
  */
-export function generateInvitationCode(length = 8): string {
+export function generateInvitationCode(length = 6): string {
   return generateHubCode(length); // Use same logic as hub codes
 }
 

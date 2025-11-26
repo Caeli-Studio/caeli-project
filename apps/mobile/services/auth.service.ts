@@ -106,19 +106,11 @@ class AuthService {
       // Parse the URL - Supabase returns tokens in hash fragment
       const url = new URL(result.url);
 
-      // Debug: Log URL parts
-      console.log('[OAuth Debug] Full URL:', result.url);
-      console.log('[OAuth Debug] Hash:', url.hash);
-      console.log('[OAuth Debug] Search params:', url.search);
-
       // Check if we got tokens directly in the hash (PKCE flow)
       if (url.hash) {
         const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove '#'
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
-
-        console.log('[OAuth Debug] Access token found:', !!accessToken);
-        console.log('[OAuth Debug] Refresh token found:', !!refreshToken);
 
         if (accessToken) {
           // Parse the session from hash params
@@ -133,22 +125,11 @@ class AuthService {
             token_type: hashParams.get('token_type') || 'bearer',
           };
 
-          console.log('[OAuth Debug] Session created:', {
-            hasAccessToken: !!session.access_token,
-            hasRefreshToken: !!session.refresh_token,
-            expiresIn: session.expires_in,
-          });
-
           // Save session
           await storage.saveSession(session);
 
           // Get user info from the access token
           const userResponse = await this.getSession();
-
-          console.log('[OAuth Debug] User response:', {
-            success: userResponse.success,
-            hasUser: !!userResponse.user,
-          });
 
           if (userResponse.success && userResponse.user) {
             await storage.saveUser(userResponse.user);
@@ -252,7 +233,6 @@ class AuthService {
       const response = await fetch(API_ENDPOINTS.SIGN_OUT, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
       });

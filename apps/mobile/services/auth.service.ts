@@ -35,10 +35,6 @@ class AuthService {
       // Get the correct OAuth redirect URL for the current environment
       const redirectUrl = getOAuthRedirectUrl();
 
-      // Debug: Log the URL being called
-      console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
-      console.log('[OAuth] Using redirect URL:', redirectUrl);
-
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
         method: 'POST',
@@ -56,13 +52,7 @@ class AuthService {
         throw new Error(data.message || 'Failed to initiate Google sign-in');
       }
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Opening URL:', data.url);
-        console.log('[Android OAuth Debug] Redirect URL:', redirectUrl);
-      }
-
-      // Open the OAuth URL in a browser with Android-specific options
+      // Open the OAuth URL in a browser
       const browserOptions: WebBrowser.WebBrowserOpenOptions = {
         showTitle: false,
         enableBarCollapsing: false,
@@ -77,14 +67,6 @@ class AuthService {
         redirectUrl,
         browserOptions
       );
-
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Result type:', result.type);
-        if (result.type === 'success') {
-          console.log('[Android OAuth Debug] Result URL:', result.url);
-        }
-      }
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);

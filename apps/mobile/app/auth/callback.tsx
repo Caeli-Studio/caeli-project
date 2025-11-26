@@ -1,7 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,16 +19,6 @@ export default function AuthCallbackScreen() {
   const { refreshSession } = useAuth();
   const [isProcessing, setIsProcessing] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  // Debug logging for Android
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      console.log(
-        '[Android OAuth Debug] Callback params:',
-        JSON.stringify(params)
-      );
-    }
-  }, [params]);
 
   const handleCallback = React.useCallback(async () => {
     try {

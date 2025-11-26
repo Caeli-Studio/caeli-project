@@ -52,13 +52,7 @@ class AuthService {
         throw new Error(data.message || 'Failed to initiate Google sign-in');
       }
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Opening URL:', data.url);
-        console.log('[Android OAuth Debug] Redirect URL:', OAUTH_REDIRECT_URL);
-      }
-
-      // Open the OAuth URL in a browser with Android-specific options
+      // Open the OAuth URL in a browser
       const browserOptions: WebBrowser.WebBrowserOpenOptions = {
         showTitle: false,
         enableBarCollapsing: false,
@@ -73,14 +67,6 @@ class AuthService {
         OAUTH_REDIRECT_URL,
         browserOptions
       );
-
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Result type:', result.type);
-        if (result.type === 'success') {
-          console.log('[Android OAuth Debug] Result URL:', result.url);
-        }
-      }
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);

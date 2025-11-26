@@ -28,7 +28,9 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "caeli"
+              "scheme": "caeli",
+              "host": "auth",
+              "pathPrefix": "/callback"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]

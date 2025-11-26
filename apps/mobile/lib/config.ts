@@ -2,6 +2,8 @@
  * Application configuration
  */
 
+import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
 /**
@@ -19,7 +21,7 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '192.168.0.9';
+const LOCAL_IP_ADDRESS = '172.20.10.11';
 const BACKEND_PORT = '3000';
 
 /**
@@ -62,8 +64,32 @@ export const API_ENDPOINTS = {
   REFRESH_SESSION: `${API_BASE_URL}/api/auth/refresh`,
 } as const;
 
-// OAuth redirect URL for mobile app
-export const OAUTH_REDIRECT_URL = 'caeli://auth/callback';
+/**
+ * Get OAuth redirect URL based on environment
+ *
+ * CRITICAL FOR ANDROID EXPO GO:
+ * - Expo Go requires using Expo's auth proxy redirect URL
+ * - Custom schemes (caeli://) only work in standalone builds
+ * - iOS can handle both, but Android in Expo Go requires the proxy
+ */
+export const getOAuthRedirectUrl = (): string => {
+  // Check if running in Expo Go (development)
+  const isExpoGo = Constants.appOwnership === 'expo';
+
+  if (isExpoGo) {
+    // Use Expo's auth session redirect for Expo Go
+    // This creates a URL like: https://auth.expo.io/@your-username/your-app
+    return Linking.createURL('auth/callback', {
+      scheme: 'caeli',
+    });
+  }
+
+  // For standalone builds, use custom scheme
+  return 'caeli://auth/callback';
+};
+
+// OAuth redirect URL for mobile app (deprecated - use getOAuthRedirectUrl())
+export const OAUTH_REDIRECT_URL = getOAuthRedirectUrl();
 
 // Session refresh threshold (in seconds before expiry)
 export const SESSION_REFRESH_THRESHOLD = 300; // Refresh 5 minutes before expiry

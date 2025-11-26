@@ -42,6 +42,7 @@ describe('Auth Controller - Unit Tests', () => {
         provider: 'google',
         options: {
           redirectTo: 'http://localhost:3000/auth/callback',
+          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

@@ -13,7 +13,7 @@ import type {
 import {
   API_ENDPOINTS,
   SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
+  getOAuthRedirectUrl,
 } from '@/lib/config';
 import { storage } from '@/lib/storage';
 
@@ -32,8 +32,8 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
-      // Debug: Log the URL being called
-      console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
+      // Get the correct OAuth redirect URL for the current environment
+      const redirectUrl = getOAuthRedirectUrl();
 
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
@@ -42,7 +42,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirectUrl: OAUTH_REDIRECT_URL,
+          redirectUrl,
         }),
       });
 
@@ -52,13 +52,7 @@ class AuthService {
         throw new Error(data.message || 'Failed to initiate Google sign-in');
       }
 
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Opening URL:', data.url);
-        console.log('[Android OAuth Debug] Redirect URL:', OAUTH_REDIRECT_URL);
-      }
-
-      // Open the OAuth URL in a browser with Android-specific options
+      // Open the OAuth URL in a browser
       const browserOptions: WebBrowser.WebBrowserOpenOptions = {
         showTitle: false,
         enableBarCollapsing: false,
@@ -70,17 +64,9 @@ class AuthService {
 
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        OAUTH_REDIRECT_URL,
+        redirectUrl,
         browserOptions
       );
-
-      // Debug logging for Android
-      if (Platform.OS === 'android') {
-        console.log('[Android OAuth Debug] Result type:', result.type);
-        if (result.type === 'success') {
-          console.log('[Android OAuth Debug] Result URL:', result.url);
-        }
-      }
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);
@@ -90,8 +76,9 @@ class AuthService {
         if (Platform.OS === 'android' && result.type === 'dismiss') {
           throw new Error(
             'OAuth redirect failed. Make sure you:\n' +
-              '1. Added caeli://auth/callback to Supabase redirect URLs\n' +
-              '2. Rebuilt the app with: npx expo run:android'
+              '1. Added the correct redirect URL to Supabase dashboard\n' +
+              '2. For Expo Go: Use the Expo auth proxy URL\n' +
+              '3. For standalone: Rebuild with npx expo run:android'
           );
         }
 
@@ -135,6 +122,8 @@ class AuthService {
               session,
               user: userResponse.user,
             };
+          } else {
+            throw new Error('Failed to get user info from session');
           }
         }
       }
@@ -226,7 +215,6 @@ class AuthService {
       const response = await fetch(API_ENDPOINTS.SIGN_OUT, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
       });

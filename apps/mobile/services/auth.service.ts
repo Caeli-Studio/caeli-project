@@ -13,7 +13,7 @@ import type {
 import {
   API_ENDPOINTS,
   SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
+  getOAuthRedirectUrl,
 } from '@/lib/config';
 import { storage } from '@/lib/storage';
 
@@ -32,8 +32,12 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
+      // Get the correct OAuth redirect URL for the current environment
+      const redirectUrl = getOAuthRedirectUrl();
+
       // Debug: Log the URL being called
       console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
+      console.log('[OAuth] Using redirect URL:', redirectUrl);
 
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
@@ -42,7 +46,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirectUrl: OAUTH_REDIRECT_URL,
+          redirectUrl,
         }),
       });
 
@@ -55,7 +59,7 @@ class AuthService {
       // Debug logging for Android
       if (Platform.OS === 'android') {
         console.log('[Android OAuth Debug] Opening URL:', data.url);
-        console.log('[Android OAuth Debug] Redirect URL:', OAUTH_REDIRECT_URL);
+        console.log('[Android OAuth Debug] Redirect URL:', redirectUrl);
       }
 
       // Open the OAuth URL in a browser with Android-specific options
@@ -70,7 +74,7 @@ class AuthService {
 
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        OAUTH_REDIRECT_URL,
+        redirectUrl,
         browserOptions
       );
 
@@ -90,8 +94,9 @@ class AuthService {
         if (Platform.OS === 'android' && result.type === 'dismiss') {
           throw new Error(
             'OAuth redirect failed. Make sure you:\n' +
-              '1. Added caeli://auth/callback to Supabase redirect URLs\n' +
-              '2. Rebuilt the app with: npx expo run:android'
+              '1. Added the correct redirect URL to Supabase dashboard\n' +
+              '2. For Expo Go: Use the Expo auth proxy URL\n' +
+              '3. For standalone: Rebuild with npx expo run:android'
           );
         }
 
@@ -101,11 +106,19 @@ class AuthService {
       // Parse the URL - Supabase returns tokens in hash fragment
       const url = new URL(result.url);
 
+      // Debug: Log URL parts
+      console.log('[OAuth Debug] Full URL:', result.url);
+      console.log('[OAuth Debug] Hash:', url.hash);
+      console.log('[OAuth Debug] Search params:', url.search);
+
       // Check if we got tokens directly in the hash (PKCE flow)
       if (url.hash) {
         const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove '#'
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
+
+        console.log('[OAuth Debug] Access token found:', !!accessToken);
+        console.log('[OAuth Debug] Refresh token found:', !!refreshToken);
 
         if (accessToken) {
           // Parse the session from hash params
@@ -120,11 +133,22 @@ class AuthService {
             token_type: hashParams.get('token_type') || 'bearer',
           };
 
+          console.log('[OAuth Debug] Session created:', {
+            hasAccessToken: !!session.access_token,
+            hasRefreshToken: !!session.refresh_token,
+            expiresIn: session.expires_in,
+          });
+
           // Save session
           await storage.saveSession(session);
 
           // Get user info from the access token
           const userResponse = await this.getSession();
+
+          console.log('[OAuth Debug] User response:', {
+            success: userResponse.success,
+            hasUser: !!userResponse.user,
+          });
 
           if (userResponse.success && userResponse.user) {
             await storage.saveUser(userResponse.user);
@@ -135,6 +159,8 @@ class AuthService {
               session,
               user: userResponse.user,
             };
+          } else {
+            throw new Error('Failed to get user info from session');
           }
         }
       }

@@ -20,7 +20,6 @@ import type { TaskWithDetails, TaskStatus } from '@/types/task';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
 
@@ -28,7 +27,6 @@ type FilterType = 'all' | 'mine' | 'open' | 'done';
 
 const Home: React.FC = () => {
   const { user, signOut } = useAuth();
-  const { theme } = useTheme();
   const router = useRouter();
 
   // State
@@ -294,13 +292,13 @@ const Home: React.FC = () => {
   const getStatusColor = (status: TaskStatus) => {
     switch (status) {
       case 'done':
-        return theme.colors.taskDone;
+        return '#4CAF50';
       case 'open':
-        return theme.colors.taskOpen;
+        return '#FF9800';
       case 'cancelled':
-        return theme.colors.taskCancelled;
+        return '#F44336';
       default:
-        return theme.colors.textTertiary;
+        return '#999';
     }
   };
 
@@ -317,286 +315,11 @@ const Home: React.FC = () => {
     }
   };
 
-  // Dynamic styles based on theme
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    centered: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: 10,
-      color: theme.colors.textSecondary,
-      fontSize: 16,
-    },
-    header: {
-      marginTop: 50,
-      marginHorizontal: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    date: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: theme.colors.text,
-    },
-    stats: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginVertical: 20,
-    },
-    card: {
-      backgroundColor: theme.colors.card,
-      padding: 15,
-      borderRadius: 12,
-      alignItems: 'center',
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-      elevation: 3,
-      width: 90,
-    },
-    cardNumber: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: theme.colors.text,
-    },
-    cardLabel: {
-      fontSize: 13,
-      color: theme.colors.textSecondary,
-    },
-    progressContainer: {
-      marginHorizontal: 20,
-      marginBottom: 10,
-    },
-    progressBar: {
-      height: 8,
-      backgroundColor: theme.colors.success,
-      borderRadius: 10,
-    },
-    progressText: {
-      fontSize: 14,
-      color: theme.colors.text,
-      marginTop: 6,
-      textAlign: 'center',
-    },
-    filtersContainer: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      marginBottom: 15,
-      gap: 10,
-    },
-    filterButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 20,
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    filterButtonActive: {
-      backgroundColor: theme.colors.success,
-      borderColor: theme.colors.success,
-    },
-    filterText: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      fontWeight: '600',
-    },
-    filterTextActive: {
-      color: '#fff',
-    },
-    sectionTitle: {
-      marginHorizontal: 20,
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.text,
-      marginBottom: 10,
-    },
-    task: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: theme.colors.surface,
-      padding: 15,
-      marginHorizontal: 20,
-      marginBottom: 10,
-      borderRadius: 10,
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 2,
-    },
-    taskDone: {
-      backgroundColor: theme.colors.successLight,
-    },
-    taskLeft: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      flex: 1,
-    },
-    taskContent: {
-      flex: 1,
-      marginLeft: 10,
-    },
-    taskText: {
-      fontSize: 16,
-      color: theme.colors.text,
-      fontWeight: '600',
-    },
-    taskTextDone: {
-      textDecorationLine: 'line-through',
-      color: theme.colors.textTertiary,
-    },
-    taskDesc: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginTop: 4,
-    },
-    taskDate: {
-      fontSize: 12,
-      color: theme.colors.textTertiary,
-      marginTop: 4,
-    },
-    taskAssigned: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      marginTop: 4,
-    },
-    statusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 12,
-    },
-    statusText: {
-      color: '#fff',
-      fontSize: 11,
-      fontWeight: '600',
-    },
-    empty: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    emptyText: {
-      marginTop: 10,
-      color: theme.colors.textSecondary,
-      fontSize: 16,
-    },
-    fab: {
-      position: 'absolute',
-      bottom: 80,
-      right: 30,
-      backgroundColor: theme.colors.success,
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.2,
-      shadowOffset: { width: 0, height: 2 },
-      shadowRadius: 5,
-      elevation: 5,
-    },
-    // Modal styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: theme.colors.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    modalContent: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 15,
-      padding: 20,
-      width: '100%',
-      maxWidth: 400,
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.25,
-      shadowOffset: { width: 0, height: 2 },
-      shadowRadius: 10,
-      elevation: 5,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-    modalSubtitle: {
-      fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    statusOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 15,
-      borderRadius: 10,
-      marginBottom: 10,
-      backgroundColor: theme.colors.divider,
-    },
-    statusOpen: {
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors.taskOpen,
-    },
-    statusDone: {
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors.taskDone,
-    },
-    statusCancelled: {
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors.taskCancelled,
-    },
-    statusDelete: {
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors.error,
-      backgroundColor: theme.colors.errorLight,
-      marginTop: 10,
-    },
-    statusOptionText: {
-      fontSize: 16,
-      color: theme.colors.text,
-      marginLeft: 15,
-      fontWeight: '500',
-    },
-    statusDeleteText: {
-      fontSize: 16,
-      color: theme.colors.error,
-      marginLeft: 15,
-      fontWeight: '600',
-    },
-    modalCancelButton: {
-      marginTop: 10,
-      padding: 15,
-      backgroundColor: theme.colors.divider,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    modalCancelText: {
-      fontSize: 16,
-      color: theme.colors.textSecondary,
-      fontWeight: '500',
-    },
-  });
-
   if (loading) {
     return (
       <ProtectedRoute>
         <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color={theme.colors.success} />
+          <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </ProtectedRoute>
@@ -615,11 +338,7 @@ const Home: React.FC = () => {
             <Text style={styles.title}>{greeting}</Text>
           </View>
           <TouchableOpacity onPress={handleSignOut}>
-            <Ionicons
-              name="log-out-outline"
-              size={28}
-              color={theme.colors.error}
-            />
+            <Ionicons name="log-out-outline" size={28} color="#FF5252" />
           </TouchableOpacity>
         </View>
 
@@ -796,11 +515,7 @@ const Home: React.FC = () => {
           />
         ) : (
           <View style={styles.empty}>
-            <Ionicons
-              name="clipboard-outline"
-              size={64}
-              color={theme.colors.textTertiary}
-            />
+            <Ionicons name="clipboard-outline" size={64} color="#aaa" />
             <Text style={styles.emptyText}>Aucune tâche trouvée</Text>
           </View>
         )}
@@ -880,5 +595,279 @@ const Home: React.FC = () => {
     </ProtectedRoute>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#E9E4B8',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  header: {
+    marginTop: 50,
+    marginHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  date: {
+    fontSize: 14,
+    color: '#555',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333',
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 20,
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    width: 90,
+  },
+  cardNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+  },
+  cardLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  progressContainer: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#4CAF50',
+    borderRadius: 10,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#333',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 15,
+    gap: 10,
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  filterButtonActive: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  filterText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+  sectionTitle: {
+    marginHorizontal: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  task: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  taskDone: {
+    backgroundColor: '#e7f6e7',
+  },
+  taskLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  taskContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  taskText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  taskTextDone: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  taskDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  taskDate: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  taskAssigned: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 80,
+    right: 30,
+    backgroundColor: '#4CAF50',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  statusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  statusOpen: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  statusDone: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  statusCancelled: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  statusDelete: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#E74C3C',
+    backgroundColor: '#ffe5e5',
+    marginTop: 10,
+  },
+  statusOptionText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 15,
+    fontWeight: '500',
+  },
+  statusDeleteText: {
+    fontSize: 16,
+    color: '#E74C3C',
+    marginLeft: 15,
+    fontWeight: '600',
+  },
+  modalCancelButton: {
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+});
 
 export default Home;

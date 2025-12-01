@@ -18,6 +18,7 @@ import type { GetGroupsResponse } from '@/types/group';
 import type { TaskWithDetails } from '@/types/task';
 
 import Navbar from '@/components/navbar';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
 
@@ -32,6 +33,7 @@ type RouteParams = {
 
 const Assignement = () => {
   const router = useRouter();
+  const { theme } = useTheme();
   const [activePage, setActivePage] = useState(0);
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -179,15 +181,194 @@ const Assignement = () => {
     });
   };
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.colors.background },
+
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 50,
+    },
+
+    groupSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 15,
+      paddingBottom: 10,
+    },
+
+    groupLabel: {
+      color: theme.colors.text,
+      fontWeight: 'bold',
+      marginRight: 10,
+    },
+
+    groupChip: {
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+
+    groupChipActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+
+    groupChipText: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+
+    groupChipTextActive: {
+      color: '#FFF',
+    },
+
+    centeredContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 10,
+      padding: 16,
+      maxWidth: '90%',
+      height: 350,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 0.1,
+      shadowRadius: 5,
+      elevation: 3,
+    },
+
+    innerContent: {
+      width: width * 0.82,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    pageTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 10,
+    },
+
+    message: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+
+    noteText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginBottom: 10,
+      fontStyle: 'italic',
+    },
+
+    input: {
+      width: '100%',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      padding: 10,
+      borderRadius: 5,
+      marginBottom: 10,
+      backgroundColor: theme.colors.card,
+      color: theme.colors.text,
+    },
+
+    buttonAdd: {
+      backgroundColor: theme.colors.primary,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 6,
+      minWidth: 150,
+      alignItems: 'center',
+    },
+
+    buttonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+    },
+
+    dotContainer: {
+      flexDirection: 'row',
+      marginTop: 16,
+      justifyContent: 'center',
+    },
+
+    dot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: theme.colors.border,
+      marginHorizontal: 4,
+    },
+
+    activeDot: {
+      backgroundColor: theme.colors.primary,
+    },
+
+    taskBox: {
+      backgroundColor: theme.colors.card,
+      borderRadius: 10,
+      padding: 15,
+      marginBottom: 10,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+
+    taskTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+
+    taskDesc: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginTop: 4,
+    },
+
+    taskAssign: {
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      marginTop: 4,
+    },
+
+    taskDate: {
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      marginTop: 4,
+    },
+  });
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push('/organisation')}>
-          <MaterialIcons name="group" size={30} color="#FFFFFF" />
+          <MaterialIcons name="group" size={30} color={theme.colors.text} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/profile')}>
-          <MaterialIcons name="person" size={30} color="#FFFFFF" />
+          <MaterialIcons name="person" size={30} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -238,7 +419,10 @@ const Assignement = () => {
               <View style={styles.innerContent} key={index}>
                 {index === 0 ? (
                   loadingTasks ? (
-                    <ActivityIndicator size="large" color="#898989" />
+                    <ActivityIndicator
+                      size="large"
+                      color={theme.colors.primary}
+                    />
                   ) : tasks.length === 0 ? (
                     <Text style={styles.message}>{page.text}</Text>
                   ) : (
@@ -342,175 +526,5 @@ const Assignement = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#C5BD83' },
-
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-
-  groupSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 10,
-  },
-
-  groupLabel: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    marginRight: 10,
-  },
-
-  groupChip: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-
-  groupChipActive: {
-    backgroundColor: '#898989',
-  },
-
-  groupChipText: {
-    color: '#898989',
-    fontWeight: '600',
-  },
-
-  groupChipTextActive: {
-    color: '#FFF',
-  },
-
-  centeredContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  card: {
-    backgroundColor: '#D9D9D9',
-    borderRadius: 10,
-    padding: 16,
-    maxWidth: '90%',
-    height: 350,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  innerContent: {
-    width: width * 0.82,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-
-  message: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#898989',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-
-  noteText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 10,
-    fontStyle: 'italic',
-  },
-
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-  },
-
-  buttonAdd: {
-    backgroundColor: '#898989',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 6,
-    minWidth: 150,
-    alignItems: 'center',
-  },
-
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-
-  dotContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-    justifyContent: 'center',
-  },
-
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#C0C0C0',
-    marginHorizontal: 4,
-  },
-
-  activeDot: {
-    backgroundColor: '#898989',
-  },
-
-  taskBox: {
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-
-  taskDesc: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 4,
-  },
-
-  taskAssign: {
-    fontSize: 13,
-    color: '#444',
-    marginTop: 4,
-  },
-
-  taskDate: {
-    fontSize: 13,
-    color: '#555',
-    marginTop: 4,
-  },
-});
 
 export default Assignement;

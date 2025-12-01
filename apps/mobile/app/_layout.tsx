@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider as CaeliThemeProvider } from '@/contexts/ThemeContext';
 import { NAV_THEME } from '@/lib/theme';
 
 export {
@@ -43,12 +44,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-      <AuthProvider>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Stack />
-        <PortalHost />
-      </AuthProvider>
-    </ThemeProvider>
+    <CaeliThemeProvider>
+      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+        <AuthProvider>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <Stack />
+          <PortalHost />
+        </AuthProvider>
+      </ThemeProvider>
+    </CaeliThemeProvider>
   );
 }

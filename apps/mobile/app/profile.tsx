@@ -9,14 +9,17 @@ import {
   Image,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
 
 import Navbar from '@/components/navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const Profile = () => {
   const { user, signOut } = useAuth();
+  const { isDark, themeMode, setThemeMode, theme } = useTheme();
   const [profileImage, setProfileImage] = useState<string | null>(
     user?.avatar || null
   );
@@ -58,6 +61,89 @@ const Profile = () => {
     ]);
   };
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      alignItems: 'center',
+      marginTop: 50,
+    },
+    profilePic: {
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      backgroundColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+    },
+    userName: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginTop: 15,
+    },
+    userRole: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+      marginTop: 5,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      marginTop: 30,
+    },
+    statCard: {
+      backgroundColor: theme.colors.card,
+      paddingVertical: 15,
+      borderRadius: 15,
+      alignItems: 'center',
+      elevation: 3,
+      marginHorizontal: 10,
+      marginBottom: 10,
+      minWidth: 120,
+      flex: 1,
+      maxWidth: 150,
+    },
+    statNumber: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    statLabel: {
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+    },
+    optionsContainer: {
+      marginTop: 30,
+      paddingHorizontal: 20,
+    },
+    optionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 10,
+      elevation: 2,
+    },
+    optionText: {
+      marginLeft: 10,
+      fontSize: 16,
+      color: theme.colors.text,
+      fontWeight: '500',
+      flex: 1,
+    },
+  });
+
   return (
     <ProtectedRoute>
       <View style={styles.container}>
@@ -68,7 +154,11 @@ const Profile = () => {
               {profileImage ? (
                 <Image source={{ uri: profileImage }} style={styles.image} />
               ) : (
-                <MaterialIcons name="person" size={60} color="#FFFFFF" />
+                <MaterialIcons
+                  name="person"
+                  size={60}
+                  color={theme.colors.surface}
+                />
               )}
             </TouchableOpacity>
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
@@ -94,25 +184,49 @@ const Profile = () => {
           {/* OPTIONS */}
           <View style={styles.optionsContainer}>
             <TouchableOpacity style={styles.optionButton}>
-              <MaterialIcons name="edit" size={24} color="#333" />
+              <MaterialIcons name="edit" size={24} color={theme.colors.text} />
               <Text style={styles.optionText}>Modifier le profil</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.optionButton}>
-              <MaterialIcons name="palette" size={24} color="#333" />
-              <Text style={styles.optionText}>Changer le thème</Text>
-            </TouchableOpacity>
+            <View style={styles.optionButton}>
+              <MaterialIcons
+                name="palette"
+                size={24}
+                color={theme.colors.text}
+              />
+              <Text style={styles.optionText}>
+                Thème {isDark ? 'Sombre' : 'Clair'}
+              </Text>
+              <Switch
+                value={themeMode === 'dark'}
+                onValueChange={(value) =>
+                  setThemeMode(value ? 'dark' : 'light')
+                }
+                trackColor={{
+                  false: theme.colors.border,
+                  true: theme.colors.primary,
+                }}
+                thumbColor={themeMode === 'dark' ? '#fff' : '#f4f3f4'}
+              />
+            </View>
 
             <TouchableOpacity
               style={styles.optionButton}
               onPress={() => Alert.alert('Notifications')}
             >
-              <MaterialIcons name="notifications" size={24} color="#333" />
+              <MaterialIcons
+                name="notifications"
+                size={24}
+                color={theme.colors.text}
+              />
               <Text style={styles.optionText}>Notifications</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.optionButton, { backgroundColor: '#E74C3C' }]}
+              style={[
+                styles.optionButton,
+                { backgroundColor: theme.colors.error },
+              ]}
               onPress={handleSignOut}
             >
               <MaterialIcons name="logout" size={24} color="#fff" />
@@ -128,87 +242,5 @@ const Profile = () => {
     </ProtectedRoute>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#C5BD83',
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: 50,
-  },
-  profilePic: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#b3b3b3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  userName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
-    marginTop: 15,
-  },
-  userRole: {
-    fontSize: 16,
-    color: '#555',
-    marginTop: 5,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    marginTop: 30,
-  },
-  statCard: {
-    backgroundColor: '#fff',
-    paddingVertical: 15,
-    borderRadius: 15,
-    alignItems: 'center',
-    elevation: 3,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    minWidth: 120,
-    flex: 1,
-    maxWidth: 150,
-  },
-
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#666',
-  },
-  optionsContainer: {
-    marginTop: 30,
-    paddingHorizontal: 20,
-  },
-  optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    elevation: 2,
-  },
-  optionText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-});
 
 export default Profile;

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 import { Group, Membership, GetGroupsResponse } from '@/types/group';
 
@@ -32,6 +33,7 @@ interface GroupWithMembership {
 
 export default function HouseholdsScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [households, setHouseholds] = useState<GroupWithMembership[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,7 +111,7 @@ export default function HouseholdsScreen() {
             <MaterialIcons
               name={getTypeIcon(item.group.type)}
               size={32}
-              color="#C5BD83"
+              color={theme.colors.primary}
             />
           </View>
           <View style={styles.householdInfo}>
@@ -121,17 +123,260 @@ export default function HouseholdsScreen() {
               {getRoleLabel(item.membership.role_name)}
             </Text>
           </View>
-          <MaterialIcons name="chevron-right" size={28} color="#C5BD83" />
+          <MaterialIcons
+            name="chevron-right"
+            size={28}
+            color={theme.colors.primary}
+          />
         </CardContent>
       </TouchableOpacity>
     </Card>
   );
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.divider,
+    },
+    emptyContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    emptyStateContainer: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 20,
+      paddingTop: 30,
+      paddingBottom: 16,
+    },
+    scrollContent: {
+      padding: 20,
+      paddingTop: 60,
+      paddingBottom: 100,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+      lineHeight: 32,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.9)',
+      marginTop: 4,
+    },
+    refreshButton: {
+      padding: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 20,
+    },
+    listContainer: {
+      padding: 16,
+      paddingBottom: 100,
+    },
+    householdCard: {
+      marginBottom: 12,
+      backgroundColor: theme.colors.card,
+      borderWidth: 0,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    householdCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+    },
+    householdIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: theme.colors.divider,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    householdInfo: {
+      flex: 1,
+    },
+    householdName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    householdType: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 2,
+    },
+    householdRole: {
+      fontSize: 12,
+      color: theme.colors.textTertiary,
+      fontStyle: 'italic',
+    },
+    welcomeIcon: {
+      alignSelf: 'center',
+      marginBottom: 16,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: theme.colors.divider,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    welcomeCard: {
+      backgroundColor: theme.colors.card,
+      borderWidth: 0,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    welcomeTitle: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    welcomeDescription: {
+      fontSize: 16,
+      color: theme.colors.text,
+      textAlign: 'center',
+      lineHeight: 24,
+      marginTop: 8,
+    },
+    actionCard: {
+      backgroundColor: theme.colors.card,
+      borderWidth: 0,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    cardTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 8,
+    },
+    cardDescription: {
+      fontSize: 15,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+    },
+    orText: {
+      fontSize: 15,
+      color: theme.colors.textSecondary,
+      paddingHorizontal: 8,
+    },
+    primaryButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 8,
+      gap: 8,
+    },
+    primaryButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 8,
+      gap: 8,
+    },
+    secondaryButtonText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    codeInput: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      marginBottom: 12,
+      color: theme.colors.text,
+    },
+    joinButton: {
+      backgroundColor: theme.colors.divider,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    joinButtonText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.colors.border,
+    },
+    fab: {
+      position: 'absolute',
+      bottom: 90,
+      right: 20,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 8,
+    },
+  });
+
   if (loading) {
     return (
       <ProtectedRoute>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C5BD83" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Chargement des foyers...</Text>
         </View>
       </ProtectedRoute>
@@ -190,7 +435,11 @@ export default function HouseholdsScreen() {
               <Card className="mb-6" style={styles.welcomeCard}>
                 <CardHeader>
                   <View style={styles.welcomeIcon}>
-                    <MaterialIcons name="home-work" size={48} color="#8B7355" />
+                    <MaterialIcons
+                      name="home-work"
+                      size={48}
+                      color={theme.colors.primary}
+                    />
                   </View>
                   <CardTitle
                     className="text-center"
@@ -251,7 +500,7 @@ export default function HouseholdsScreen() {
                     <MaterialIcons
                       name="qr-code-scanner"
                       size={20}
-                      color="#8B7355"
+                      color={theme.colors.primary}
                     />
                     <Text style={styles.secondaryButtonText}>
                       Scanner un QR code
@@ -282,240 +531,3 @@ export default function HouseholdsScreen() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: '#C5BD83',
-  },
-  emptyStateContainer: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    backgroundColor: '#C5BD83',
-    paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 16,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 100,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    lineHeight: 32,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
-  },
-  refreshButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-  },
-  listContainer: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  householdCard: {
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  householdCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  householdIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f9f8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  householdInfo: {
-    flex: 1,
-  },
-  householdName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  householdType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  householdRole: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  welcomeIcon: {
-    alignSelf: 'center',
-    marginBottom: 16,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f9f8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  welcomeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  welcomeTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
-    textAlign: 'center',
-  },
-  welcomeDescription: {
-    fontSize: 16,
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 8,
-  },
-  actionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  cardDescription: {
-    fontSize: 15,
-    color: '#000000',
-    lineHeight: 22,
-  },
-  orText: {
-    fontSize: 15,
-    color: '#000000',
-    paddingHorizontal: 8,
-  },
-  primaryButton: {
-    backgroundColor: '#8B7355',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#8B7355',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  secondaryButtonText: {
-    color: '#8B7355',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  codeInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  joinButton: {
-    backgroundColor: '#f9f8f0',
-    borderWidth: 2,
-    borderColor: '#8B7355',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  joinButtonText: {
-    color: '#8B7355',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e5e5',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 90,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#C5BD83',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-});

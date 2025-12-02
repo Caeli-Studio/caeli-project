@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 
 type GroupType = 'family' | 'roommates' | 'company' | 'other';
@@ -41,6 +42,7 @@ interface CreateGroupResponse {
 
 export default function CreateHouseholdScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [name, setName] = useState('');
   const [selectedType, setSelectedType] = useState<GroupType>('family');
   const [loading, setLoading] = useState(false);
@@ -96,6 +98,124 @@ export default function CreateHouseholdScreen() {
     }
   };
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      paddingTop: 48,
+    },
+    backButton: {
+      padding: 8,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: '#fff',
+      marginLeft: 16,
+    },
+    form: {
+      padding: 16,
+    },
+    inputGroup: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 8,
+    },
+    required: {
+      color: theme.colors.error,
+    },
+    input: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    typeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    typeCard: {
+      flex: 1,
+      minWidth: '45%',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 120,
+      position: 'relative',
+    },
+    typeCardSelected: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.divider,
+    },
+    typeLabel: {
+      marginTop: 8,
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    typeLabelSelected: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    checkMark: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+    },
+    infoBox: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.infoLight,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 24,
+      gap: 12,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+    },
+    createButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 8,
+      gap: 8,
+    },
+    createButtonDisabled: {
+      backgroundColor: theme.colors.border,
+    },
+    createButtonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+  });
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -104,7 +224,7 @@ export default function CreateHouseholdScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Créer un foyer</Text>
       </View>
@@ -142,7 +262,11 @@ export default function CreateHouseholdScreen() {
                 <MaterialIcons
                   name={type.icon}
                   size={32}
-                  color={selectedType === type.value ? '#C5BD83' : '#666'}
+                  color={
+                    selectedType === type.value
+                      ? theme.colors.primary
+                      : theme.colors.textSecondary
+                  }
                 />
                 <Text
                   style={[
@@ -157,7 +281,7 @@ export default function CreateHouseholdScreen() {
                     <MaterialIcons
                       name="check-circle"
                       size={20}
-                      color="#C5BD83"
+                      color={theme.colors.primary}
                     />
                   </View>
                 )}
@@ -168,7 +292,7 @@ export default function CreateHouseholdScreen() {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <MaterialIcons name="info" size={20} color="#666" />
+          <MaterialIcons name="info" size={20} color={theme.colors.info} />
           <Text style={styles.infoText}>
             Vous deviendrez automatiquement le maître de foyer avec tous les
             droits d'administration.
@@ -194,119 +318,3 @@ export default function CreateHouseholdScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#C5BD83',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 48,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 16,
-  },
-  form: {
-    padding: 16,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#E74C3C',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  typeCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 120,
-    position: 'relative',
-  },
-  typeCardSelected: {
-    borderColor: '#C5BD83',
-    backgroundColor: '#f9f8f0',
-  },
-  typeLabel: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    textAlign: 'center',
-  },
-  typeLabelSelected: {
-    color: '#333',
-    fontWeight: '600',
-  },
-  checkMark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 24,
-    gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  createButton: {
-    backgroundColor: '#C5BD83',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  createButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  createButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-});

@@ -24,6 +24,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 
 interface Member {
@@ -48,6 +49,7 @@ interface Invitation {
 
 export default function HouseholdDetailsScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const { groupId, groupName } = useLocalSearchParams<{
     groupId: string;
     groupName: string;
@@ -237,6 +239,226 @@ export default function HouseholdDetailsScreen() {
     </Card>
   );
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      backgroundColor: theme.colors.primary,
+      paddingTop: 60,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      marginRight: 15,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    section: {
+      marginBottom: 20,
+    },
+    memberCard: {
+      marginBottom: 12,
+    },
+    memberContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+    },
+    memberAvatar: {
+      marginRight: 12,
+    },
+    memberInfo: {
+      flex: 1,
+    },
+    memberName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    roleBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    roleText: {
+      fontSize: 12,
+      color: '#fff',
+      fontWeight: '500',
+    },
+    inviteButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 100,
+    },
+    inviteIcon: {
+      marginRight: 8,
+    },
+    inviteButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalContent: {
+      backgroundColor: theme.colors.card,
+      borderRadius: 20,
+      padding: 24,
+      width: '100%',
+      maxWidth: 400,
+    },
+    modalClose: {
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      zIndex: 1,
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    modalDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 24,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    qrCodeContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    codeContainer: {
+      backgroundColor: theme.colors.divider,
+      padding: 20,
+      borderRadius: 12,
+      marginBottom: 24,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      borderStyle: 'dashed',
+    },
+    textCodeContainer: {
+      backgroundColor: theme.colors.divider,
+      padding: 32,
+      borderRadius: 12,
+      marginBottom: 24,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    inviteCodeText: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      textAlign: 'center',
+      letterSpacing: 4,
+    },
+    shareButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 12,
+    },
+    shareButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+      marginLeft: 8,
+    },
+    inviteOptionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.divider,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    inviteOptionText: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    inviteOptionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    inviteOptionDesc: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+    },
+    pseudoInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.divider,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginBottom: 20,
+    },
+    pseudoInput: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.colors.text,
+      marginLeft: 8,
+      padding: 0,
+    },
+    backButtonText: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      textAlign: 'center',
+      marginTop: 12,
+    },
+    loadingContainer: {
+      paddingVertical: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+  });
+
   return (
     <ProtectedRoute>
       <Stack.Screen
@@ -266,7 +488,7 @@ export default function HouseholdDetailsScreen() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <ActivityIndicator size="large" color="#C5BD83" />
+                <ActivityIndicator size="large" color={theme.colors.primary} />
               ) : (
                 <View>{members.map(renderMember)}</View>
               )}
@@ -318,7 +540,11 @@ export default function HouseholdDetailsScreen() {
                   setPseudoInput('');
                 }}
               >
-                <Ionicons name="close" size={28} color="#666" />
+                <Ionicons
+                  name="close"
+                  size={28}
+                  color={theme.colors.textSecondary}
+                />
               </TouchableOpacity>
 
               {/* Choice View */}
@@ -334,7 +560,11 @@ export default function HouseholdDetailsScreen() {
                     onPress={generateQRCode}
                     disabled={inviteLoading}
                   >
-                    <MaterialIcons name="qr-code" size={32} color="#C5BD83" />
+                    <MaterialIcons
+                      name="qr-code"
+                      size={32}
+                      color={theme.colors.primary}
+                    />
                     <View style={styles.inviteOptionText}>
                       <Text style={styles.inviteOptionTitle}>Code QR</Text>
                       <Text style={styles.inviteOptionDesc}>
@@ -344,7 +574,7 @@ export default function HouseholdDetailsScreen() {
                     <MaterialIcons
                       name="chevron-right"
                       size={24}
-                      color="#999"
+                      color={theme.colors.textSecondary}
                     />
                   </TouchableOpacity>
 
@@ -353,7 +583,11 @@ export default function HouseholdDetailsScreen() {
                     onPress={generateTextCode}
                     disabled={inviteLoading}
                   >
-                    <MaterialIcons name="pin" size={32} color="#C5BD83" />
+                    <MaterialIcons
+                      name="pin"
+                      size={32}
+                      color={theme.colors.primary}
+                    />
                     <View style={styles.inviteOptionText}>
                       <Text style={styles.inviteOptionTitle}>
                         Code à 6 caractères
@@ -365,7 +599,7 @@ export default function HouseholdDetailsScreen() {
                     <MaterialIcons
                       name="chevron-right"
                       size={24}
-                      color="#999"
+                      color={theme.colors.textSecondary}
                     />
                   </TouchableOpacity>
 
@@ -376,7 +610,7 @@ export default function HouseholdDetailsScreen() {
                     <MaterialIcons
                       name="person-add"
                       size={32}
-                      color="#C5BD83"
+                      color={theme.colors.primary}
                     />
                     <View style={styles.inviteOptionText}>
                       <Text style={styles.inviteOptionTitle}>Par pseudo</Text>
@@ -387,7 +621,7 @@ export default function HouseholdDetailsScreen() {
                     <MaterialIcons
                       name="chevron-right"
                       size={24}
-                      color="#999"
+                      color={theme.colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </>
@@ -402,7 +636,10 @@ export default function HouseholdDetailsScreen() {
                         Génération du code...
                       </Text>
                       <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#C5BD83" />
+                        <ActivityIndicator
+                          size="large"
+                          color={theme.colors.primary}
+                        />
                       </View>
                     </>
                   ) : (
@@ -460,7 +697,10 @@ export default function HouseholdDetailsScreen() {
                         Génération du code...
                       </Text>
                       <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#C5BD83" />
+                        <ActivityIndicator
+                          size="large"
+                          color={theme.colors.primary}
+                        />
                       </View>
                     </>
                   ) : (
@@ -511,7 +751,7 @@ export default function HouseholdDetailsScreen() {
                     <MaterialIcons
                       name="alternate-email"
                       size={24}
-                      color="#999"
+                      color={theme.colors.textSecondary}
                     />
                     <TextInput
                       style={styles.pseudoInput}
@@ -564,222 +804,3 @@ export default function HouseholdDetailsScreen() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#C5BD83',
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  memberCard: {
-    marginBottom: 12,
-  },
-  memberContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-  },
-  memberAvatar: {
-    marginRight: 12,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  roleBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  inviteButton: {
-    backgroundColor: '#C5BD83',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 100,
-  },
-  inviteIcon: {
-    marginRight: 8,
-  },
-  inviteButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalClose: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 1,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  qrCodeContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  codeContainer: {
-    backgroundColor: '#f9f8f0',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#C5BD83',
-    borderStyle: 'dashed',
-  },
-  textCodeContainer: {
-    backgroundColor: '#f9f8f0',
-    padding: 32,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#C5BD83',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inviteCodeText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    letterSpacing: 4,
-  },
-  shareButton: {
-    backgroundColor: '#C5BD83',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-  },
-  shareButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  inviteOptionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9f8f0',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  inviteOptionText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  inviteOptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  inviteOptionDesc: {
-    fontSize: 14,
-    color: '#666',
-  },
-  pseudoInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9f8f0',
-    borderWidth: 2,
-    borderColor: '#C5BD83',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
-  },
-  pseudoInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 8,
-    padding: 0,
-  },
-  backButtonText: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-});

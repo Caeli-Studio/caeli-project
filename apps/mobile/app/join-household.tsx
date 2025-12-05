@@ -21,10 +21,12 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 
 export default function JoinHouseholdScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [mode, setMode] = useState<'choice' | 'scan' | 'manual'>('choice');
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -86,6 +88,160 @@ export default function JoinHouseholdScreen() {
     setMode('scan');
   };
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      backgroundColor: theme.colors.primary,
+      paddingTop: 60,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      marginRight: 15,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+      paddingBottom: 100,
+    },
+    card: {
+      marginBottom: 20,
+      backgroundColor: theme.colors.card,
+    },
+    primaryButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 12,
+      gap: 8,
+    },
+    primaryButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 12,
+      gap: 8,
+    },
+    secondaryButtonText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 20,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.colors.border,
+    },
+    orText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      paddingHorizontal: 12,
+      fontWeight: '500',
+    },
+    scannerContainer: {
+      flex: 1,
+    },
+    camera: {
+      flex: 1,
+    },
+    scannerOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scannerFrame: {
+      width: 250,
+      height: 250,
+      borderWidth: 3,
+      borderColor: theme.colors.primary,
+      borderRadius: 12,
+      backgroundColor: 'transparent',
+    },
+    scannerText: {
+      marginTop: 30,
+      color: '#fff',
+      fontSize: 16,
+      textAlign: 'center',
+      paddingHorizontal: 40,
+    },
+    cancelButton: {
+      position: 'absolute',
+      bottom: 100,
+      left: 20,
+      right: 20,
+      backgroundColor: theme.colors.card,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    cancelButtonText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    codeInput: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      borderRadius: 12,
+      padding: 20,
+      fontSize: 32,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      letterSpacing: 8,
+      marginBottom: 20,
+      color: theme.colors.text,
+    },
+    submitButton: {
+      backgroundColor: theme.colors.primary,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    submitButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    backToChoiceButton: {
+      padding: 12,
+      alignItems: 'center',
+    },
+    backToChoiceText: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+    },
+  });
+
   return (
     <ProtectedRoute>
       <Stack.Screen
@@ -110,8 +266,10 @@ export default function JoinHouseholdScreen() {
           <View style={styles.content}>
             <Card style={styles.card}>
               <CardHeader>
-                <CardTitle>Scanner un QR code</CardTitle>
-                <CardDescription>
+                <CardTitle style={{ color: theme.colors.text }}>
+                  Scanner un QR code
+                </CardTitle>
+                <CardDescription style={{ color: theme.colors.textSecondary }}>
                   Scannez le QR code affiché par un membre du foyer
                 </CardDescription>
               </CardHeader>
@@ -140,8 +298,10 @@ export default function JoinHouseholdScreen() {
 
             <Card style={styles.card}>
               <CardHeader>
-                <CardTitle>Entrer un code manuellement</CardTitle>
-                <CardDescription>
+                <CardTitle style={{ color: theme.colors.text }}>
+                  Entrer un code manuellement
+                </CardTitle>
+                <CardDescription style={{ color: theme.colors.textSecondary }}>
                   Saisissez le code à 6 caractères que vous avez reçu
                 </CardDescription>
               </CardHeader>
@@ -150,7 +310,11 @@ export default function JoinHouseholdScreen() {
                   style={styles.secondaryButton}
                   onPress={() => setMode('manual')}
                 >
-                  <MaterialIcons name="edit" size={24} color="#C5BD83" />
+                  <MaterialIcons
+                    name="edit"
+                    size={24}
+                    color={theme.colors.primary}
+                  />
                   <Text style={styles.secondaryButtonText}>Saisir le code</Text>
                 </TouchableOpacity>
               </CardContent>
@@ -191,8 +355,10 @@ export default function JoinHouseholdScreen() {
           <View style={styles.content}>
             <Card style={styles.card}>
               <CardHeader>
-                <CardTitle>Code d'invitation</CardTitle>
-                <CardDescription>
+                <CardTitle style={{ color: theme.colors.text }}>
+                  Code d'invitation
+                </CardTitle>
+                <CardDescription style={{ color: theme.colors.textSecondary }}>
                   Entrez le code à 6 caractères reçu
                 </CardDescription>
               </CardHeader>
@@ -240,155 +406,3 @@ export default function JoinHouseholdScreen() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#C5BD83',
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    paddingBottom: 100,
-  },
-  card: {
-    marginBottom: 20,
-  },
-  primaryButton: {
-    backgroundColor: '#C5BD83',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#C5BD83',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  secondaryButtonText: {
-    color: '#C5BD83',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e5e5',
-  },
-  orText: {
-    fontSize: 14,
-    color: '#666',
-    paddingHorizontal: 12,
-    fontWeight: '500',
-  },
-  scannerContainer: {
-    flex: 1,
-  },
-  camera: {
-    flex: 1,
-  },
-  scannerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scannerFrame: {
-    width: 250,
-    height: 250,
-    borderWidth: 3,
-    borderColor: '#C5BD83',
-    borderRadius: 12,
-    backgroundColor: 'transparent',
-  },
-  scannerText: {
-    marginTop: 30,
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-  cancelButton: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#C5BD83',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  codeInput: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#C5BD83',
-    borderRadius: 12,
-    padding: 20,
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 8,
-    marginBottom: 20,
-    color: '#333',
-  },
-  submitButton: {
-    backgroundColor: '#C5BD83',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backToChoiceButton: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  backToChoiceText: {
-    color: '#666',
-    fontSize: 14,
-  },
-});

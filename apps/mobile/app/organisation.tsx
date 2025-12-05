@@ -206,6 +206,34 @@ export default function HouseholdsScreen() {
       color: 'rgba(255, 255, 255, 0.9)',
       marginTop: 4,
     },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    invitationsButton: {
+      padding: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 20,
+      position: 'relative',
+    },
+    badge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: '#ff4444',
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    badgeText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
     refreshButton: {
       padding: 8,
       backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -310,11 +338,6 @@ export default function HouseholdsScreen() {
       color: theme.colors.textSecondary,
       lineHeight: 22,
     },
-    orText: {
-      fontSize: 15,
-      color: theme.colors.textSecondary,
-      paddingHorizontal: 8,
-    },
     primaryButton: {
       backgroundColor: theme.colors.primary,
       flexDirection: 'row',
@@ -325,7 +348,7 @@ export default function HouseholdsScreen() {
       gap: 8,
     },
     primaryButtonText: {
-      color: '#fff',
+      color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
     },
@@ -345,39 +368,6 @@ export default function HouseholdsScreen() {
       fontSize: 16,
       fontWeight: '600',
     },
-    codeInput: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      marginBottom: 12,
-      color: theme.colors.text,
-    },
-    joinButton: {
-      backgroundColor: theme.colors.divider,
-      borderWidth: 2,
-      borderColor: theme.colors.primary,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    joinButtonText: {
-      color: theme.colors.primary,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    divider: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: 16,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.colors.border,
-    },
     fab: {
       position: 'absolute',
       bottom: 90,
@@ -393,6 +383,28 @@ export default function HouseholdsScreen() {
       shadowOpacity: 0.3,
       shadowRadius: 6,
       elevation: 8,
+    },
+    fabMenuItem: {
+      position: 'absolute',
+      bottom: 160,
+      right: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.card,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 25,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 5,
+      gap: 8,
+    },
+    fabMenuText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
     },
   });
 
@@ -465,20 +477,24 @@ export default function HouseholdsScreen() {
                     router.push('/create-household');
                   }}
                 >
-                  <MaterialIcons name="home" size={20} color="#C5BD83" />
+                  <MaterialIcons
+                    name="home"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
                   <Text style={styles.fabMenuText}>Créer un foyer</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.fabMenuItem, { bottom: 160 }]}
                   onPress={() => {
                     setShowFabMenu(false);
-                    router.push('./join-household' as any);
+                    router.push('/join-household');
                   }}
                 >
                   <MaterialIcons
                     name="qr-code-scanner"
                     size={20}
-                    color="#C5BD83"
+                    color={theme.colors.primary}
                   />
                   <Text style={styles.fabMenuText}>Rejoindre un foyer</Text>
                 </TouchableOpacity>
@@ -565,7 +581,7 @@ export default function HouseholdsScreen() {
                 </CardHeader>
                 <CardContent>
                   <TouchableOpacity
-                    onPress={() => router.push('./join-household' as any)}
+                    onPress={() => router.push('/join-household')}
                     style={styles.secondaryButton}
                   >
                     <MaterialIcons
@@ -588,253 +604,3 @@ export default function HouseholdsScreen() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: '#C5BD83',
-  },
-  emptyStateContainer: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    backgroundColor: '#C5BD83',
-    paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 16,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 100,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    lineHeight: 32,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  invitationsButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#ff4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  refreshButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-  },
-  listContainer: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  householdCard: {
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  householdCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  householdIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f9f8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  householdInfo: {
-    flex: 1,
-  },
-  householdName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  householdType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  householdRole: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  welcomeIcon: {
-    alignSelf: 'center',
-    marginBottom: 16,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f9f8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  welcomeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  welcomeTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000000',
-    textAlign: 'center',
-  },
-  welcomeDescription: {
-    fontSize: 16,
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 8,
-  },
-  actionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  cardDescription: {
-    fontSize: 15,
-    color: '#000000',
-    lineHeight: 22,
-  },
-  primaryButton: {
-    backgroundColor: '#8B7355',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#8B7355',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  secondaryButtonText: {
-    color: '#8B7355',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 90,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#C5BD83',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  fabMenuItem: {
-    position: 'absolute',
-    bottom: 160,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-    gap: 8,
-  },
-  fabMenuText: {
-    color: '#C5BD83',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

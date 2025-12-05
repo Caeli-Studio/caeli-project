@@ -19,6 +19,13 @@
     "type-check": {
       "dependsOn": ["^type-check"]
     },
+    "test": {
+      "outputs": []
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
     "clean": {
       "cache": false
     }

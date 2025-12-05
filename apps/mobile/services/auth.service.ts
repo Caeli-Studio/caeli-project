@@ -1,4 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 
 import type {
   AuthResponse,
@@ -12,7 +13,7 @@ import type {
 import {
   API_ENDPOINTS,
   SESSION_REFRESH_THRESHOLD,
-  OAUTH_REDIRECT_URL,
+  getOAuthRedirectUrl,
 } from '@/lib/config';
 import { storage } from '@/lib/storage';
 
@@ -31,8 +32,8 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
-      // Debug: Log the URL being called
-      console.warn('Attempting to connect to:', API_ENDPOINTS.GOOGLE_AUTH);
+      // Get the correct OAuth redirect URL for the current environment
+      const redirectUrl = getOAuthRedirectUrl();
 
       // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
@@ -41,7 +42,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirectUrl: OAUTH_REDIRECT_URL,
+          redirectUrl,
         }),
       });
 
@@ -52,13 +53,35 @@ class AuthService {
       }
 
       // Open the OAuth URL in a browser
+      const browserOptions: WebBrowser.WebBrowserOpenOptions = {
+        showTitle: false,
+        enableBarCollapsing: false,
+        // For Android, ensure we use a browser that can redirect back
+        ...(Platform.OS === 'android' && {
+          showInRecents: true,
+        }),
+      };
+
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        OAUTH_REDIRECT_URL
+        redirectUrl,
+        browserOptions
       );
 
       if (result.type !== 'success') {
         console.warn('Authentication result type:', result.type);
+
+        // On Android, sometimes the redirect doesn't work in dev mode
+        // but the user still authenticated. Let's provide helpful guidance.
+        if (Platform.OS === 'android' && result.type === 'dismiss') {
+          throw new Error(
+            'OAuth redirect failed. Make sure you:\n' +
+              '1. Added the correct redirect URL to Supabase dashboard\n' +
+              '2. For Expo Go: Use the Expo auth proxy URL\n' +
+              '3. For standalone: Rebuild with npx expo run:android'
+          );
+        }
+
         throw new Error('Authentication was cancelled or failed');
       }
 
@@ -99,6 +122,8 @@ class AuthService {
               session,
               user: userResponse.user,
             };
+          } else {
+            throw new Error('Failed to get user info from session');
           }
         }
       }
@@ -190,7 +215,6 @@ class AuthService {
       const response = await fetch(API_ENDPOINTS.SIGN_OUT, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
       });

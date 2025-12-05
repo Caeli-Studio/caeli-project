@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
 
-
 export function SignInForm() {
   const passwordInputRef = React.useRef<TextInput>(null);
   const router = useRouter();
@@ -26,14 +25,16 @@ export function SignInForm() {
   }
 
   function onSubmit() {
-    router.push('/home')
+    router.push('/home');
   }
 
   return (
     <View className="gap-6">
       <Card className="border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5">
         <CardHeader>
-          <CardTitle className="text-center text-xl sm:text-left">Connectez-vous à votre compte</CardTitle>
+          <CardTitle className="text-center text-xl sm:text-left">
+            Connectez-vous à votre compte
+          </CardTitle>
           <CardDescription className="text-center sm:text-left">
             Welcome back! Please sign in to continue
           </CardDescription>
@@ -62,8 +63,11 @@ export function SignInForm() {
                   className="web:h-fit ml-auto h-4 px-1 py-0 sm:h-4"
                   onPress={() => {
                     // TODO: Navigate to forgot password screen
-                  }}>
-                  <Text className="font-normal leading-4">Mot de passe oublié ?</Text>
+                  }}
+                >
+                  <Text className="font-normal leading-4">
+                    Mot de passe oublié ?
+                  </Text>
                 </Button>
               </View>
               <Input
@@ -83,8 +87,11 @@ export function SignInForm() {
             <Pressable
               onPress={() => {
                 // TODO: Navigate to sign up screen
-              }}>
-              <Text className="text-sm underline underline-offset-4">Sign up</Text>
+              }}
+            >
+              <Text className="text-sm underline underline-offset-4">
+                Sign up
+              </Text>
             </Pressable>
           </Text>
           <View className="flex-row items-center">

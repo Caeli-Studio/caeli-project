@@ -1,0 +1,12 @@
+# Build output
+dist/
+
+# Coverage directory used by tools like vitest
+coverage/
+
+# Test artifacts
+*.test.js
+*.spec.js
+*.test.ts.map
+*.spec.ts.map
+dist/

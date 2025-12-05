@@ -42,6 +42,7 @@ export async function signInWithGoogle(
         provider: 'google',
         options: {
           redirectTo: finalRedirectUrl,
+          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

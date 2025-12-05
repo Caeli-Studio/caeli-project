@@ -9,43 +9,71 @@ class ApiService {
    * Make an authenticated GET request
    */
   async get<T>(endpoint: string): Promise<T> {
-    const accessToken = await storage.getAccessToken();
+    try {
+      const accessToken = await storage.getAccessToken();
+      const url = `${API_BASE_URL}${endpoint}`;
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-      },
-    });
+      console.log(`[API] GET ${url}`);
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+      });
+
+      console.log(`[API] Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[API] Error response: ${errorText}`);
+        throw new Error(
+          `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error(`[API] Request error:`, error);
+      throw error;
     }
-
-    return response.json();
   }
 
   /**
    * Make an authenticated POST request
    */
   async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    const accessToken = await storage.getAccessToken();
+    try {
+      const accessToken = await storage.getAccessToken();
+      const url = `${API_BASE_URL}${endpoint}`;
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-      },
-      body: data ? JSON.stringify(data) : undefined,
-    });
+      console.log(`[API] POST ${url}`, data);
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      });
+
+      console.log(`[API] Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[API] Error response: ${errorText}`);
+        throw new Error(
+          `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error(`[API] Request error:`, error);
+      throw error;
     }
-
-    return response.json();
   }
 
   /**

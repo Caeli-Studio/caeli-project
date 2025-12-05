@@ -19,7 +19,7 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '192.168.0.84';
+const LOCAL_IP_ADDRESS = '10.4.195.54';
 const BACKEND_PORT = '3000';
 
 /**
@@ -41,11 +41,11 @@ const getDevApiUrl = () => {
     // return `http://${LOCAL_IP_ADDRESS}:${BACKEND_PORT}`;
 
     // Use 127.0.0.1 instead of localhost for better compatibility
-    return `http://192.168.0.84:${BACKEND_PORT}`;
+    return `http://172.20.10.8:${BACKEND_PORT}`;
   }
 
   // Fallback
-  return `http://192.168.0.84:${BACKEND_PORT}`;
+  return `http://172.20.10.8:${BACKEND_PORT}`;
 };
 
 // Backend API URL

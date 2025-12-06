@@ -10,6 +10,8 @@ import {
   Alert,
   ScrollView,
   Switch,
+  Modal, // Importé pour la fenêtre de modification du nom
+  TextInput, // Importé pour la saisie du nouveau nom
 } from 'react-native';
 
 import Navbar from '@/components/navbar';
@@ -18,11 +20,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const Profile = () => {
-  const { user, signOut } = useAuth();
+  // NOTE: J'ai supposé que le hook useAuth fournit une fonction
+  // pour mettre à jour le nom (updateUserName) pour la persistance.
+  const { user, signOut, updateUserName } = useAuth();
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
+
+  // État pour le nom/pseudo modifiable
+  const [userName, setUserName] = useState<string>(user?.name || 'User');
+
   const [profileImage, setProfileImage] = useState<string | null>(
     user?.avatar || null
   );
+
+  // État pour la visibilité de la modal de modification du nom
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  // État pour la valeur temporaire du TextInput dans la modal
+  const [inputNickname, setInputNickname] = useState<string>(userName);
 
   const pickImage = async () => {
     const permissionResult =
@@ -45,6 +58,41 @@ const Profile = () => {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setProfileImage(uri);
+    }
+  };
+
+  /**
+   * Ouvre la Modal pour modifier le nom d'utilisateur.
+   */
+  const handleEditNickname = () => {
+    setInputNickname(userName); // Initialise l'input avec le nom actuel
+    setIsModalVisible(true); // Ouvre la modal
+  };
+
+  /**
+   * Sauvegarde le nouveau nom d'utilisateur.
+   */
+  const saveNickname = async () => {
+    if (inputNickname && inputNickname.trim().length > 0) {
+      const trimmedNickname = inputNickname.trim();
+      setUserName(trimmedNickname); // Mise à jour de l'état local
+
+      // Si updateUserName existe dans AuthContext, on met à jour le backend/contexte
+      if (updateUserName) {
+        // NOTE: Vous devez implémenter cette fonction dans votre AuthContext.tsx
+        const success = await updateUserName(trimmedNickname);
+        if (!success) {
+          // Revert l'état local si l'update échoue
+          setUserName(user?.name || 'User');
+          Alert.alert(
+            'Erreur',
+            'Impossible de sauvegarder le nom. Veuillez réessayer.'
+          );
+        }
+      }
+      setIsModalVisible(false); // Ferme la modal
+    } else {
+      Alert.alert('Erreur', "Le nom d'utilisateur ne peut pas être vide.");
     }
   };
 
@@ -142,6 +190,68 @@ const Profile = () => {
       fontWeight: '500',
       flex: 1,
     },
+    // --- Styles de la Modal ---
+    centeredView: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    modalView: {
+      margin: 20,
+      backgroundColor: theme.colors.card,
+      borderRadius: 15,
+      padding: 25,
+      alignItems: 'center',
+      width: '80%',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    modalTitle: {
+      marginBottom: 20,
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    textInput: {
+      width: '100%',
+      height: 45,
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      marginBottom: 20,
+      paddingHorizontal: 15,
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    buttonContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+    },
+    button: {
+      borderRadius: 10,
+      padding: 10,
+      elevation: 2,
+      flex: 1,
+      marginHorizontal: 5,
+      alignItems: 'center',
+    },
+    buttonCancel: {
+      backgroundColor: theme.colors.border,
+    },
+    buttonSave: {
+      backgroundColor: theme.colors.primary,
+    },
+    textStyle: {
+      color: theme.colors.surface,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
   });
 
   return (
@@ -161,7 +271,8 @@ const Profile = () => {
                 />
               )}
             </TouchableOpacity>
-            <Text style={styles.userName}>{user?.name || 'User'}</Text>
+            {/* AFFICHAGE DU PSEUDO MODIFIABLE */}
+            <Text style={styles.userName}>{userName}</Text>
             <Text style={styles.userRole}>{user?.email || ''}</Text>
           </View>
 
@@ -183,9 +294,15 @@ const Profile = () => {
 
           {/* OPTIONS */}
           <View style={styles.optionsContainer}>
-            <TouchableOpacity style={styles.optionButton}>
+            {/* BOUTON MODIFIER LE NOM (PSEUDO) */}
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={handleEditNickname} // Appel pour ouvrir la modal
+            >
               <MaterialIcons name="edit" size={24} color={theme.colors.text} />
-              <Text style={styles.optionText}>Modifier le profil</Text>
+              <Text style={styles.optionText}>
+                Modifier le nom d'utilisateur
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.optionButton}>
@@ -238,6 +355,41 @@ const Profile = () => {
         </ScrollView>
 
         <Navbar />
+
+        {/* --- MODAL DE MODIFICATION DU NOM --- */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={isModalVisible}
+          onRequestClose={() => setIsModalVisible(false)}
+        >
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+              <Text style={styles.modalTitle}>Modifier le nom</Text>
+              <TextInput
+                style={styles.textInput}
+                onChangeText={setInputNickname}
+                value={inputNickname}
+                placeholder="Nouveau pseudo"
+                placeholderTextColor={theme.colors.textSecondary}
+              />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonCancel]}
+                  onPress={() => setIsModalVisible(false)}
+                >
+                  <Text style={styles.textStyle}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonSave]}
+                  onPress={saveNickname}
+                >
+                  <Text style={styles.textStyle}>Sauvegarder</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ProtectedRoute>
   );

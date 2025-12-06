@@ -85,9 +85,7 @@ export async function handleOAuthCallback(
   try {
     const { code, error, error_description } = request.query;
 
-    // Check for errors from OAuth provider
     if (error) {
-      request.log.error({ error, error_description }, 'OAuth callback error');
       return reply.status(400).send({
         success: false,
         error,
@@ -103,18 +101,39 @@ export async function handleOAuthCallback(
       });
     }
 
-    // Exchange the code for a session
+    // 1️⃣ Exchange code → session
     const { data, error: exchangeError } =
       await request.server.supabaseClient.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      request.log.error(exchangeError, 'Failed to exchange code for session');
       return reply.status(400).send({
         success: false,
         error: 'Failed to exchange authorization code',
         message: exchangeError.message,
       });
     }
+
+    const authUser = data.user;
+
+    // 2️⃣ Load profile data
+    const { data: profile } = await request.server.supabaseClient
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("user_id", authUser.id)
+      .single();
+
+    // 3️⃣ Merge auth + profile
+    const mergedUser = {
+      id: authUser.id,
+      email: authUser.email,
+      display_name: profile?.display_name ?? null,
+      avatar:
+        profile?.avatar_url ??
+        authUser.user_metadata?.avatar_url ??
+        authUser.user_metadata?.picture ??
+        null,
+      provider: authUser.app_metadata.provider,
+    };
 
     return reply.send({
       success: true,
@@ -125,26 +144,17 @@ export async function handleOAuthCallback(
         expires_in: data.session.expires_in,
         token_type: data.session.token_type,
       },
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name:
-          data.user.user_metadata?.full_name || data.user.user_metadata?.name,
-        avatar:
-          data.user.user_metadata?.avatar_url ||
-          data.user.user_metadata?.picture,
-        provider: data.user.app_metadata.provider,
-      },
+      user: mergedUser,
     });
   } catch (err) {
-    request.log.error(err, 'Error in handleOAuthCallback');
     return reply.status(500).send({
       success: false,
-      error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
+      error: "Internal server error",
+      message: err instanceof Error ? err.message : "Unknown error",
     });
   }
 }
+
 
 /**
  * Sign out the current user
@@ -196,41 +206,51 @@ export async function signOut(request: FastifyRequest, reply: FastifyReply) {
  */
 export async function getSession(request: FastifyRequest, reply: FastifyReply) {
   try {
-    // Verify JWT and get user
     await request.jwtVerify();
 
-    // Get user details from Supabase
+    // 1️⃣ Get the authenticated Supabase user
     const { data, error } = await request.supabaseClient.auth.getUser();
 
     if (error) {
-      request.log.error(error, 'Failed to get user');
       return reply.status(401).send({
         success: false,
-        error: 'Failed to get user session',
+        error: "Failed to get user session",
         message: error.message,
       });
     }
 
+    const authUser = data.user;
+
+    // 2️⃣ Get profile data from your profiles table
+    const { data: profile } = await request.supabaseClient
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("user_id", authUser.id)
+      .single();
+
+    // 3️⃣ Merge data
+    const mergedUser = {
+      id: authUser.id,
+      email: authUser.email,
+      display_name: profile?.display_name ?? null,
+      avatar:
+        profile?.avatar_url ??
+        authUser.user_metadata?.avatar_url ??
+        authUser.user_metadata?.picture ??
+        null,
+      provider: authUser.app_metadata.provider,
+      created_at: authUser.created_at,
+    };
+
     return reply.send({
       success: true,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name:
-          data.user.user_metadata?.full_name || data.user.user_metadata?.name,
-        avatar:
-          data.user.user_metadata?.avatar_url ||
-          data.user.user_metadata?.picture,
-        provider: data.user.app_metadata.provider,
-        created_at: data.user.created_at,
-      },
+      user: mergedUser,
     });
   } catch (err) {
-    request.log.error(err, 'Error in getSession');
     return reply.status(401).send({
       success: false,
-      error: 'Invalid or expired session',
-      message: err instanceof Error ? err.message : 'Unknown error',
+      error: "Invalid or expired session",
+      message: err instanceof Error ? err.message : "Unknown error",
     });
   }
 }

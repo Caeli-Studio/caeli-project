@@ -26,7 +26,9 @@ const Profile = () => {
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
 
   // État pour le nom/pseudo modifiable
-  const [userName, setUserName] = useState<string>(user?.name || 'User');
+  const [userName, setUserName] = useState<string>(
+    user?.display_name || user?.name || 'User'
+  );
 
   const [profileImage, setProfileImage] = useState<string | null>(
     user?.avatar || null
@@ -35,7 +37,10 @@ const Profile = () => {
   // État pour la visibilité de la modal de modification du nom
   const [isModalVisible, setIsModalVisible] = useState(false);
   // État pour la valeur temporaire du TextInput dans la modal
-  const [inputNickname, setInputNickname] = useState<string>(userName);
+  const [inputNickname, setInputNickname] = useState<string>(
+    user?.display_name || user?.name || ''
+  );
+
 
   const pickImage = async () => {
     const permissionResult =
@@ -83,7 +88,7 @@ const Profile = () => {
         const success = await updateUserName(trimmedNickname);
         if (!success) {
           // Revert l'état local si l'update échoue
-          setUserName(user?.name || 'User');
+          setUserName(user?.display_name || user?.name || 'User');
           Alert.alert(
             'Erreur',
             'Impossible de sauvegarder le nom. Veuillez réessayer.'

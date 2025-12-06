@@ -4,6 +4,16 @@ import type { User, AuthResponse } from '@/types/auth';
 
 import { authService } from '@/services/auth.service';
 
+
+function normalizeUser(user: User): User {
+  return {
+    ...user,
+    display_name: user.display_name ?? user.name ?? null,
+    name: user.display_name ?? user.name ?? null, // toujours afficher display_name
+  };
+}
+
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -40,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const sessionResult = await authService.getSession();
         if (sessionResult.success && sessionResult.user) {
-          setUser(sessionResult.user);
+          setUser(normalizeUser(sessionResult.user));
         } else {
           setUser(null);
           setIsAuthenticated(false);
@@ -71,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (result.success && result.user) {
         console.log('✅ Username updated:', result.user);
-        setUser(result.user);
+        setUser(normalizeUser(result.user));
         return true;
       } else {
         console.error('❌ Error updating username:', result.error);
@@ -89,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authService.signInWithGoogle();
 
       if (result.success && result.user) {
-        setUser(result.user);
+        setUser(normalizeUser(result.user));
         setIsAuthenticated(true);
       }
 
@@ -122,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await authService.refreshSession();
       if (result.success && result.user) {
-        setUser(result.user);
+        setUser(normalizeUser(result.user));
         setIsAuthenticated(true);
       } else {
         setUser(null);

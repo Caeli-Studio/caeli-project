@@ -1,18 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import type { User, AuthResponse } from '@/types/auth';
-
 import { authService } from '@/services/auth.service';
-
 
 function normalizeUser(user: User): User {
   return {
     ...user,
     display_name: user.display_name ?? user.name ?? null,
-    name: user.display_name ?? user.name ?? null, // toujours afficher display_name
+    name: user.display_name ?? user.name ?? null,
+    avatar: user.avatar ?? null,
   };
 }
-
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +20,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUserName: (newNickname: string) => Promise<boolean>;
+  updateAvatar: (base64Image: string) => Promise<boolean>;   // 🔥 AJOUTÉ
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,26 +68,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Update username using authService
    */
   const updateUserName = async (newNickname: string): Promise<boolean> => {
-    if (!user) {
-      console.error('Cannot update name: user is null.');
-      return false;
-    }
+    if (!user) return false;
 
     try {
-      console.log('📨 Calling updateUserName from Context...');
-
       const result = await authService.updateUserName(newNickname);
 
       if (result.success && result.user) {
-        console.log('✅ Username updated:', result.user);
         setUser(normalizeUser(result.user));
         return true;
-      } else {
-        console.error('❌ Error updating username:', result.error);
-        return false;
       }
+
+      return false;
     } catch (error) {
       console.error('Error in AuthContext.updateUserName:', error);
+      return false;
+    }
+  };
+
+  /**
+   * 🔥 Update avatar in Supabase
+   */
+  const updateAvatar = async (base64Image: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const result = await authService.updateAvatar(base64Image);
+
+      if (result.success && result.user) {
+        setUser(normalizeUser(result.user));     // Mise à jour de l’UI
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error in AuthContext.updateAvatar:", error);
       return false;
     }
   };
@@ -155,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshSession,
         updateUserName,
+        updateAvatar,   // 🔥 ajouté au provider
       }}
     >
       {children}
@@ -164,8 +178,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

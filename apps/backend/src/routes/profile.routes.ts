@@ -3,6 +3,7 @@ import {
   getMyProfile,
   getUserProfile,
   updateMyProfile,
+  updateAvatar,
 } from '../controllers/profile.controller';
 import { verifyJWT } from '../utils/auth';
 import { customLogger } from '../utils/logger';
@@ -13,6 +14,9 @@ import type { FastifyInstance } from 'fastify';
  * Profile routes
  */
 export default async function profileRoutes(fastify: FastifyInstance) {
+
+  console.log("📌 profile.routes.ts LOADED");
+  
   fastify.get('/me', {
     onRequest: [verifyJWT],
     schema: {
@@ -132,9 +136,45 @@ export default async function profileRoutes(fastify: FastifyInstance) {
     handler: getUserProfile,
   });
 
+  fastify.put('/avatar', {
+    onRequest: [verifyJWT],
+    schema: {
+      tags: ['Profile'],
+      summary: 'Update avatar',
+      description: "Uploads a new avatar and updates the user's profile",
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['avatar_base64'],
+        properties: {
+          avatar_base64: {
+            type: 'string',
+            description: 'Base64 encoded image',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Avatar updated successfully',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            avatar_url: { type: 'string' },
+            profile: { type: 'object' },
+          },
+        },
+      },
+    },
+    handler: updateAvatar,
+  });
+
+  customLogger.route('PUT', '/api/profile/avatar');
+
+
   // Log registered routes
   customLogger.route('GET', '/api/profile/me');
   customLogger.route('PUT', '/api/profile/me');
   customLogger.route('POST', '/api/profile');
   customLogger.route('GET', '/api/profile/:user_id');
+  customLogger.route('PUT', '/api/profile/avatar');
 }

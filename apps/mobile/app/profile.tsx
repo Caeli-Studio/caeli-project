@@ -22,7 +22,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 const Profile = () => {
   // NOTE: J'ai supposé que le hook useAuth fournit une fonction
   // pour mettre à jour le nom (updateUserName) pour la persistance.
-  const { user, signOut, updateUserName } = useAuth();
+  const { user, signOut, updateUserName, updateAvatar } = useAuth();
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
 
   // État pour le nom/pseudo modifiable
@@ -43,11 +43,11 @@ const Profile = () => {
 
 
   const pickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.status !== 'granted') {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.status !== "granted") {
       Alert.alert(
-        'Permission refusée',
+        "Permission refusée",
         "Autorisez l'accès à la galerie pour changer la photo."
       );
       return;
@@ -58,13 +58,29 @@ const Profile = () => {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
+      base64: true, // 🔥 OBLIGATOIRE pour envoyer au backend
     });
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setProfileImage(uri);
+    if (result.canceled) return;
+
+    const picked = result.assets[0];
+
+    // UI update
+    setProfileImage(picked.uri);
+
+    // 🔥 Envoi au backend
+    if (picked.base64) {
+      const success = await updateAvatar(picked.base64);
+
+      if (!success) {
+        Alert.alert("Erreur", "Impossible de mettre à jour l'avatar.");
+        return;
+      }
+
+      // L’UI se mettra à jour automatiquement car updateAvatar modifie le contexte
     }
   };
+
 
   /**
    * Ouvre la Modal pour modifier le nom d'utilisateur.

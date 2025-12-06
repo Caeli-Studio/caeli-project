@@ -268,25 +268,45 @@ export async function refreshSession(
     if (!refresh_token) {
       return reply.status(400).send({
         success: false,
-        error: 'Missing refresh token',
-        message: 'Refresh token is required',
+        error: "Missing refresh token",
+        message: "Refresh token is required",
       });
     }
 
-    // Refresh the session
+    // 1️⃣ Refresh supabase session
     const { data, error } =
       await request.server.supabaseClient.auth.refreshSession({
         refresh_token,
       });
 
     if (error) {
-      request.log.error(error, 'Session refresh failed');
       return reply.status(401).send({
         success: false,
-        error: 'Failed to refresh session',
+        error: "Failed to refresh session",
         message: error.message,
       });
     }
+
+    const authUser = data.user;
+
+    // 2️⃣ Load profile info
+    const { data: profile } = await request.server.supabaseClient
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("user_id", authUser.id)
+      .single();
+
+    // 3️⃣ Merge result
+    const mergedUser = {
+      id: authUser.id,
+      email: authUser.email,
+      display_name: profile?.display_name ?? null,
+      avatar:
+        profile?.avatar_url ??
+        authUser.user_metadata?.avatar_url ??
+        authUser.user_metadata?.picture ??
+        null,
+    };
 
     return reply.send({
       success: true,
@@ -297,22 +317,14 @@ export async function refreshSession(
         expires_in: data.session?.expires_in,
         token_type: data.session?.token_type,
       },
-      user: {
-        id: data.user?.id,
-        email: data.user?.email,
-        name:
-          data.user?.user_metadata?.full_name || data.user?.user_metadata?.name,
-        avatar:
-          data.user?.user_metadata?.avatar_url ||
-          data.user?.user_metadata?.picture,
-      },
+      user: mergedUser,
     });
   } catch (err) {
-    request.log.error(err, 'Error in refreshSession');
     return reply.status(500).send({
       success: false,
-      error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
+      error: "Internal server error",
+      message: err instanceof Error ? err.message : "Unknown error",
     });
   }
 }
+

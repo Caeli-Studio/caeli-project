@@ -19,15 +19,25 @@ import { storage } from '@/lib/storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
-/**
- * Authentication Service
- * Handles Google OAuth authentication and session management
- */
 class AuthService {
   private refreshTokenTimeout?: ReturnType<typeof setTimeout>;
 
   /**
-   * Initiate Google OAuth sign-in
+   * Normalize a user object to always respect display_name > name
+   */
+  private normalize(user: any): User {
+    return {
+      id: user.id,
+      email: user.email ?? null,
+      display_name: user.display_name ?? user.name ?? null,
+      name: user.display_name ?? user.name ?? null,
+      avatar: user.avatar ?? null,
+      provider: user.provider ?? null,
+    };
+  }
+
+  /**
+   * Google OAuth sign-in
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
@@ -63,7 +73,7 @@ class AuthService {
 
       const url = new URL(result.url);
 
-      // Token-in-hash (Supabase PKCE flow)
+      // Token-in-hash flow
       if (url.hash) {
         const hashParams = new URLSearchParams(url.hash.substring(1));
         const accessToken = hashParams.get('access_token');
@@ -87,29 +97,33 @@ class AuthService {
             throw new Error('Failed to load user session');
           }
 
-          await storage.saveUser(userResponse.user);
+          const normalized = this.normalize(userResponse.user);
+          await storage.saveUser(normalized);
+
           this.scheduleTokenRefresh(session);
 
           return {
             success: true,
             session,
-            user: userResponse.user,
+            user: normalized,
           };
         }
       }
 
       // Code flow
       const code = url.searchParams.get('code');
-      if (!code) {
-        throw new Error('No authorization code or tokens received');
-      }
+      if (!code) throw new Error('No authorization code received');
 
       const authResponse = await this.exchangeCodeForSession(code);
 
       if (authResponse.success && authResponse.session && authResponse.user) {
+        const normalized = this.normalize(authResponse.user);
         await storage.saveSession(authResponse.session);
-        await storage.saveUser(authResponse.user);
+        await storage.saveUser(normalized);
+
         this.scheduleTokenRefresh(authResponse.session);
+
+        return { ...authResponse, user: normalized };
       }
 
       return authResponse;
@@ -123,15 +137,11 @@ class AuthService {
   }
 
   /**
-   * Update username (profile update)
+   * Update username
    */
   async updateUserName(newNickname: string): Promise<AuthResponse> {
     try {
       const accessToken = await storage.getAccessToken();
-
-      console.log('🔹 Calling:', API_ENDPOINTS.UPDATE_USERNAME);
-      console.log('🔹 Token:', accessToken);
-      console.log('🔹 Body sent:', { display_name: newNickname });
 
       const response = await fetch(API_ENDPOINTS.UPDATE_USERNAME, {
         method: 'PUT',
@@ -139,32 +149,28 @@ class AuthService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-          display_name: newNickname,
-        }),
+        body: JSON.stringify({ display_name: newNickname }),
       });
 
       const data = await response.json();
 
-      console.log('🔹 Status:', response.status);
-      console.log('🔹 Raw response:', data);
-
-      // Vérifie la réponse
       if (!response.ok || !data.success) {
         return { success: false, error: data.error || 'Update failed' };
       }
 
-      // 💡 Ton backend renvoie { success, profile }
       const profile = data.profile;
+
+      const normalizedUser: User = {
+        id: profile.user_id,
+        display_name: profile.display_name,
+        name: profile.display_name,
+        email: null,
+        avatar: profile.avatar_url,
+      };
 
       return {
         success: true,
-        user: {
-          id: profile.user_id,
-          name: profile.display_name,
-          email: null, // ton backend ne renvoie pas email
-          avatar: profile.avatar_url,
-        },
+        user: normalizedUser,
       };
     } catch (error) {
       console.error('❌ Error updating username:', error);
@@ -172,14 +178,14 @@ class AuthService {
     }
   }
 
-  /**
-   * Exchange authorization code for session
-   */
   private async exchangeCodeForSession(code: string): Promise<AuthResponse> {
     try {
       const response = await fetch(
         `${API_ENDPOINTS.AUTH_CALLBACK}?code=${code}`,
-        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
       );
 
       const data: AuthResponse = await response.json();
@@ -227,13 +233,12 @@ class AuthService {
   }
 
   /**
-   * Get current user session
+   * Get current session
    */
   async getSession(): Promise<SessionResponse> {
     try {
       const accessToken = await storage.getAccessToken();
-      if (!accessToken)
-        return { success: false, error: 'No access token found' };
+      if (!accessToken) return { success: false, error: 'No access token found' };
 
       const response = await fetch(API_ENDPOINTS.GET_SESSION, {
         method: 'GET',
@@ -246,7 +251,9 @@ class AuthService {
       const data: SessionResponse = await response.json();
 
       if (data.success && data.user) {
-        await storage.saveUser(data.user);
+        const normalized = this.normalize(data.user);
+        await storage.saveUser(normalized);
+        return { ...data, user: normalized };
       }
 
       return data;
@@ -257,6 +264,53 @@ class AuthService {
       };
     }
   }
+
+  /**
+ * Update avatar: upload base64 image → backend returns URL → update user
+ */
+  async updateAvatar(base64Image: string): Promise<AuthResponse> {
+    try {
+      const accessToken = await storage.getAccessToken();
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_AVATAR, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          avatar_base64: base64Image,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || "Avatar update failed" };
+      }
+
+      const updatedUser: User = {
+        id: data.profile.user_id,
+        email: null,
+        display_name: data.profile.display_name,
+        name: data.profile.display_name,
+        avatar: data.avatar_url, // 🔥 URL finale renvoyée par le backend
+        provider: null,
+      };
+
+      // 👉 Sauvegarde locale
+      await storage.saveUser(updatedUser);
+
+      return {
+        success: true,
+        user: updatedUser,
+      };
+    } catch (error) {
+      console.error("❌ Error updating avatar:", error);
+      return { success: false, error: "Network error" };
+    }
+  }
+
 
   /**
    * Refresh session
@@ -276,9 +330,12 @@ class AuthService {
       const data: AuthResponse = await response.json();
 
       if (data.success && data.session && data.user) {
+        const normalized = this.normalize(data.user);
         await storage.saveSession(data.session);
-        await storage.saveUser(data.user);
+        await storage.saveUser(normalized);
         this.scheduleTokenRefresh(data.session);
+
+        return { ...data, user: normalized };
       } else {
         await storage.clearAuth();
       }
@@ -293,9 +350,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Schedule token refresh before expiry
-   */
   private scheduleTokenRefresh(session: Session): void {
     this.cancelTokenRefresh();
 
@@ -331,8 +385,10 @@ class AuthService {
     try {
       if (await this.isAuthenticated()) {
         const session = await storage.getSession();
+
         if (session) {
           const now = Math.floor(Date.now() / 1000);
+
           if (session.expires_at > now) {
             this.scheduleTokenRefresh(session);
           } else {

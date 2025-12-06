@@ -1,10 +1,12 @@
 import { hashPin, isValidPseudo } from '../utils/helpers';
+import { Buffer } from "node:buffer";
 
 import type {
   CreateProfileRequest,
   ProfileResponse,
   UpdateProfileRequest,
 } from '../types/database';
+
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /**
@@ -24,40 +26,30 @@ export async function getMyProfile(
       .single();
 
     if (error) {
-      request.log.error(error, 'Failed to fetch profile');
       return reply.status(404).send({
         success: false,
         error: 'Profile not found',
       });
     }
 
-    // Get user's group memberships
+    // User memberships
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
-      .select(
-        `
-        *,
-        group:groups(*)
-      `
-      )
+      .select(`*, group:groups(*)`)
       .eq('user_id', request.user.sub)
       .is('left_at', null);
 
-    const response: ProfileResponse = {
-      ...profile,
-      memberships: memberships || [],
-    };
-
     return reply.send({
       success: true,
-      profile: response,
+      profile: {
+        ...profile,
+        memberships: memberships || [],
+      },
     });
   } catch (err) {
-    request.log.error(err, 'Error in getMyProfile');
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 }
@@ -83,7 +75,6 @@ export async function updateMyProfile(
         return reply.status(400).send({
           success: false,
           error: 'Invalid pseudo format',
-          message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
         });
       }
       updateData.pseudo = request.body.pseudo;
@@ -109,21 +100,9 @@ export async function updateMyProfile(
       .single();
 
     if (error) {
-      request.log.error(error, 'Failed to update profile');
-
-      // Handle unique constraint violation
-      if (error.code === '23505' && error.message.includes('pseudo')) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Pseudo already taken',
-          message: 'This pseudo is already in use by another user',
-        });
-      }
-
       return reply.status(400).send({
         success: false,
         error: 'Failed to update profile',
-        message: error.message,
       });
     }
 
@@ -132,17 +111,15 @@ export async function updateMyProfile(
       profile,
     });
   } catch (err) {
-    request.log.error(err, 'Error in updateMyProfile');
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 }
 
 /**
- * Get a specific user's profile (public info only)
+ * Get a specific user's profile
  */
 export async function getUserProfile(
   request: FastifyRequest<{ Params: { user_id: string } }>,
@@ -169,17 +146,15 @@ export async function getUserProfile(
       profile,
     });
   } catch (err) {
-    request.log.error(err, 'Error in getUserProfile');
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 }
 
 /**
- * Create profile after sign up (called automatically via trigger or manually)
+ * Create profile after sign up
  */
 export async function createProfile(
   request: FastifyRequest<{ Body: CreateProfileRequest }>,
@@ -201,15 +176,6 @@ export async function createProfile(
       });
     }
 
-    // Validate pseudo if provided
-    if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Invalid pseudo format',
-        message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
-      });
-    }
-
     const { data: profile, error } = await request.supabaseClient
       .from('profiles')
       .insert({
@@ -223,21 +189,9 @@ export async function createProfile(
       .single();
 
     if (error) {
-      request.log.error(error, 'Failed to create profile');
-
-      // Handle unique constraint violation
-      if (error.code === '23505' && error.message.includes('pseudo')) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Pseudo already taken',
-          message: 'This pseudo is already in use by another user',
-        });
-      }
-
       return reply.status(400).send({
         success: false,
         error: 'Failed to create profile',
-        message: error.message,
       });
     }
 
@@ -246,11 +200,77 @@ export async function createProfile(
       profile,
     });
   } catch (err) {
-    request.log.error(err, 'Error in createProfile');
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Upload + update avatar
+ */
+export async function updateAvatar(
+  request: FastifyRequest<{ Body: { avatar_base64: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    await request.jwtVerify();
+
+    const { avatar_base64 } = request.body;
+    if (!avatar_base64) {
+      return reply.status(400).send({
+        success: false,
+        error: "Missing avatar_base64",
+      });
+    }
+
+    const userId = request.user.sub;
+    const fileName = `avatars/${userId}-${Date.now()}.png`;
+
+    const { error: uploadError } = await request.supabaseClient.storage
+      .from("avatars")
+      .upload(fileName, Buffer.from(avatar_base64, "base64"), {
+        contentType: "image/png",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return reply.status(500).send({
+        success: false,
+        error: "Failed to upload avatar",
+      });
+    }
+
+    const { data: publicUrlData } = request.supabaseClient.storage
+      .from("avatars")
+      .getPublicUrl(fileName);
+
+    const avatar_url = publicUrlData.publicUrl;
+
+    const { data: profile, error: updateError } = await request.supabaseClient
+      .from("profiles")
+      .update({ avatar_url })
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return reply.status(400).send({
+        success: false,
+        error: "Failed to update avatar_url",
+      });
+    }
+
+    return reply.send({
+      success: true,
+      avatar_url,
+      profile,
+    });
+  } catch (err) {
+    return reply.status(500).send({
+      success: false,
+      error: "Internal server error",
     });
   }
 }

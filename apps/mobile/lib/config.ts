@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {
   GET_SESSION: `${API_BASE_URL}/api/auth/session`,
   REFRESH_SESSION: `${API_BASE_URL}/api/auth/refresh`,
   UPDATE_USERNAME: `${API_BASE_URL}/api/profile/me`,
+  UPDATE_AVATAR: `${API_BASE_URL}/api/profile/avatar`,
 } as const;
 
 /**

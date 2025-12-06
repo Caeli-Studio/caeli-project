@@ -30,6 +30,8 @@ function createApp() {
     disableRequestLogging: false,
     requestIdHeader: 'x-request-id',
     requestIdLogLabel: 'reqId',
+
+    bodyLimit: 20 * 1024 * 1024, // 20 MB
   });
 
   // Override Fastify's default serializer to use standard JSON.stringify

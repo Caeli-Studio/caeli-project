@@ -11,6 +11,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  updateUserName: (newNickname: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,7 +21,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Initialize auth on mount
   useEffect(() => {
     initializeAuth();
   }, []);
@@ -29,24 +29,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
-      // Initialize the auth service (sets up auto-refresh)
       await authService.initialize();
 
-      // Check if user is authenticated
       const authenticated = await authService.isAuthenticated();
       setIsAuthenticated(authenticated);
 
       if (authenticated) {
-        // Get current user from storage
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
 
-        // Verify session with backend
         const sessionResult = await authService.getSession();
         if (sessionResult.success && sessionResult.user) {
           setUser(sessionResult.user);
         } else {
-          // Session invalid, clear auth
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -57,6 +52,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Update username using authService
+   */
+  const updateUserName = async (newNickname: string): Promise<boolean> => {
+    if (!user) {
+      console.error('Cannot update name: user is null.');
+      return false;
+    }
+
+    try {
+      console.log('📨 Calling updateUserName from Context...');
+
+      const result = await authService.updateUserName(newNickname);
+
+      if (result.success && result.user) {
+        console.log('✅ Username updated:', result.user);
+        setUser(result.user);
+        return true;
+      } else {
+        console.error('❌ Error updating username:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error in AuthContext.updateUserName:', error);
+      return false;
     }
   };
 
@@ -98,7 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSession = async (): Promise<void> => {
     try {
       const result = await authService.refreshSession();
-
       if (result.success && result.user) {
         setUser(result.user);
         setIsAuthenticated(true);
@@ -122,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshSession,
+        updateUserName,
       }}
     >
       {children}
@@ -131,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

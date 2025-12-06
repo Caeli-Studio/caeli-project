@@ -28,22 +28,15 @@ class AuthService {
 
   /**
    * Initiate Google OAuth sign-in
-   * Opens the OAuth flow in a browser and handles the callback
    */
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
-      // Get the correct OAuth redirect URL for the current environment
       const redirectUrl = getOAuthRedirectUrl();
 
-      // Get the OAuth URL from the backend
       const response = await fetch(API_ENDPOINTS.GOOGLE_AUTH, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          redirectUrl,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ redirectUrl }),
       });
 
       const data: GoogleOAuthResponse = await response.json();
@@ -52,14 +45,10 @@ class AuthService {
         throw new Error(data.message || 'Failed to initiate Google sign-in');
       }
 
-      // Open the OAuth URL in a browser
       const browserOptions: WebBrowser.WebBrowserOpenOptions = {
         showTitle: false,
         enableBarCollapsing: false,
-        // For Android, ensure we use a browser that can redirect back
-        ...(Platform.OS === 'android' && {
-          showInRecents: true,
-        }),
+        ...(Platform.OS === 'android' && { showInRecents: true }),
       };
 
       const result = await WebBrowser.openAuthSessionAsync(
@@ -69,88 +58,57 @@ class AuthService {
       );
 
       if (result.type !== 'success') {
-        console.warn('Authentication result type:', result.type);
-
-        // On Android, sometimes the redirect doesn't work in dev mode
-        // but the user still authenticated. Let's provide helpful guidance.
-        if (Platform.OS === 'android' && result.type === 'dismiss') {
-          throw new Error(
-            'OAuth redirect failed. Make sure you:\n' +
-              '1. Added the correct redirect URL to Supabase dashboard\n' +
-              '2. For Expo Go: Use the Expo auth proxy URL\n' +
-              '3. For standalone: Rebuild with npx expo run:android'
-          );
-        }
-
         throw new Error('Authentication was cancelled or failed');
       }
 
-      // Parse the URL - Supabase returns tokens in hash fragment
       const url = new URL(result.url);
 
-      // Check if we got tokens directly in the hash (PKCE flow)
+      // Token-in-hash (Supabase PKCE flow)
       if (url.hash) {
-        const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove '#'
+        const hashParams = new URLSearchParams(url.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
 
         if (accessToken) {
-          // Parse the session from hash params
-          const session = {
+          const session: Session = {
             access_token: accessToken,
             refresh_token: refreshToken || '',
-            expires_in: parseInt(hashParams.get('expires_in') || '3600', 10),
-            expires_at: parseInt(
-              hashParams.get('expires_at') || String(Date.now() / 1000 + 3600),
-              10
+            expires_in: Number(hashParams.get('expires_in') || '3600'),
+            expires_at: Number(
+              hashParams.get('expires_at') || String(Date.now() / 1000 + 3600)
             ),
             token_type: hashParams.get('token_type') || 'bearer',
           };
 
-          // Save session
           await storage.saveSession(session);
 
-          // Get user info from the access token
           const userResponse = await this.getSession();
-
-          if (userResponse.success && userResponse.user) {
-            await storage.saveUser(userResponse.user);
-            this.scheduleTokenRefresh(session);
-
-            return {
-              success: true,
-              session,
-              user: userResponse.user,
-            };
-          } else {
-            throw new Error('Failed to get user info from session');
+          if (!userResponse.success || !userResponse.user) {
+            throw new Error('Failed to load user session');
           }
+
+          await storage.saveUser(userResponse.user);
+          this.scheduleTokenRefresh(session);
+
+          return {
+            success: true,
+            session,
+            user: userResponse.user,
+          };
         }
       }
 
-      // Otherwise, try to get authorization code (code flow)
+      // Code flow
       const code = url.searchParams.get('code');
-
       if (!code) {
-        const error = url.searchParams.get('error');
-        const errorDescription = url.searchParams.get('error_description');
-
-        throw new Error(
-          errorDescription ||
-            error ||
-            'No authorization code or tokens received'
-        );
+        throw new Error('No authorization code or tokens received');
       }
 
-      // Exchange the code for a session
       const authResponse = await this.exchangeCodeForSession(code);
 
       if (authResponse.success && authResponse.session && authResponse.user) {
-        // Save session and user data
         await storage.saveSession(authResponse.session);
         await storage.saveUser(authResponse.user);
-
-        // Set up automatic token refresh
         this.scheduleTokenRefresh(authResponse.session);
       }
 
@@ -165,18 +123,63 @@ class AuthService {
   }
 
   /**
+   * Update username (profile update)
+   */
+  async updateUserName(newNickname: string): Promise<AuthResponse> {
+    try {
+      const accessToken = await storage.getAccessToken();
+
+      console.log('🔹 Calling:', API_ENDPOINTS.UPDATE_USERNAME);
+      console.log('🔹 Token:', accessToken);
+      console.log('🔹 Body sent:', { display_name: newNickname });
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_USERNAME, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          display_name: newNickname,
+        }),
+      });
+
+      const data = await response.json();
+
+      console.log('🔹 Status:', response.status);
+      console.log('🔹 Raw response:', data);
+
+      // Vérifie la réponse
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || 'Update failed' };
+      }
+
+      // 💡 Ton backend renvoie { success, profile }
+      const profile = data.profile;
+
+      return {
+        success: true,
+        user: {
+          id: profile.user_id,
+          name: profile.display_name,
+          email: null, // ton backend ne renvoie pas email
+          avatar: profile.avatar_url,
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error updating username:', error);
+      return { success: false, error: 'Network error' };
+    }
+  }
+
+  /**
    * Exchange authorization code for session
    */
   private async exchangeCodeForSession(code: string): Promise<AuthResponse> {
     try {
       const response = await fetch(
         `${API_ENDPOINTS.AUTH_CALLBACK}?code=${code}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
       );
 
       const data: AuthResponse = await response.json();
@@ -196,39 +199,24 @@ class AuthService {
   }
 
   /**
-   * Sign out the current user
+   * Sign out
    */
   async signOut(): Promise<SignOutResponse> {
     try {
       const accessToken = await storage.getAccessToken();
 
-      if (!accessToken) {
-        // Clear local storage even if no token
-        await storage.clearAuth();
-        this.cancelTokenRefresh();
-        return {
-          success: true,
-          message: 'Signed out successfully',
-        };
-      }
-
       const response = await fetch(API_ENDPOINTS.SIGN_OUT, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
       const data: SignOutResponse = await response.json();
 
-      // Clear local storage regardless of API response
       await storage.clearAuth();
       this.cancelTokenRefresh();
 
       return data;
     } catch (error) {
-      console.error('Error in signOut:', error);
-      // Still clear local storage on error
       await storage.clearAuth();
       this.cancelTokenRefresh();
       return {
@@ -244,13 +232,8 @@ class AuthService {
   async getSession(): Promise<SessionResponse> {
     try {
       const accessToken = await storage.getAccessToken();
-
-      if (!accessToken) {
-        return {
-          success: false,
-          error: 'No access token found',
-        };
-      }
+      if (!accessToken)
+        return { success: false, error: 'No access token found' };
 
       const response = await fetch(API_ENDPOINTS.GET_SESSION, {
         method: 'GET',
@@ -268,7 +251,6 @@ class AuthService {
 
       return data;
     } catch (error) {
-      console.error('Error in getSession:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -277,49 +259,32 @@ class AuthService {
   }
 
   /**
-   * Refresh user session/token
+   * Refresh session
    */
   async refreshSession(): Promise<AuthResponse> {
     try {
       const refreshToken = await storage.getRefreshToken();
-
-      if (!refreshToken) {
-        console.error('No refresh token available - user needs to sign in');
-        return {
-          success: false,
-          error: 'No refresh token found',
-        };
-      }
+      if (!refreshToken)
+        return { success: false, error: 'No refresh token found' };
 
       const response = await fetch(API_ENDPOINTS.REFRESH_SESSION, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
       const data: AuthResponse = await response.json();
 
       if (data.success && data.session && data.user) {
-        // Save new session and user data
         await storage.saveSession(data.session);
         await storage.saveUser(data.user);
-
-        // Reschedule token refresh
         this.scheduleTokenRefresh(data.session);
       } else {
-        // Refresh failed, clear auth data
-        console.error('Session refresh failed, clearing auth data');
         await storage.clearAuth();
       }
 
       return data;
     } catch (error) {
-      console.error('Error in refreshSession:', error);
-      // Clear auth data on error
       await storage.clearAuth();
       return {
         success: false,
@@ -329,13 +294,11 @@ class AuthService {
   }
 
   /**
-   * Schedule automatic token refresh
+   * Schedule token refresh before expiry
    */
   private scheduleTokenRefresh(session: Session): void {
-    // Cancel any existing refresh timeout
     this.cancelTokenRefresh();
 
-    // Calculate when to refresh (before expiry)
     const now = Math.floor(Date.now() / 1000);
     const expiresIn = session.expires_at - now;
     const refreshIn = Math.max(
@@ -343,20 +306,12 @@ class AuthService {
       0
     );
 
-    // Schedule refresh
     this.refreshTokenTimeout = setTimeout(async () => {
       const result = await this.refreshSession();
-      if (!result.success) {
-        console.error('Auto-refresh failed:', result.error);
-        // Clear auth data if refresh fails
-        await storage.clearAuth();
-      }
+      if (!result.success) await storage.clearAuth();
     }, refreshIn);
   }
 
-  /**
-   * Cancel scheduled token refresh
-   */
   private cancelTokenRefresh(): void {
     if (this.refreshTokenTimeout) {
       clearTimeout(this.refreshTokenTimeout);
@@ -364,44 +319,29 @@ class AuthService {
     }
   }
 
-  /**
-   * Check if user is authenticated
-   */
   async isAuthenticated(): Promise<boolean> {
-    return await storage.isAuthenticated();
+    return storage.isAuthenticated();
   }
 
-  /**
-   * Get current user from storage
-   */
   async getCurrentUser(): Promise<User | null> {
-    return await storage.getUser();
+    return storage.getUser();
   }
 
-  /**
-   * Initialize auth service
-   * Checks for existing session and sets up auto-refresh
-   */
   async initialize(): Promise<void> {
     try {
-      const isAuth = await this.isAuthenticated();
-
-      if (isAuth) {
+      if (await this.isAuthenticated()) {
         const session = await storage.getSession();
         if (session) {
-          // Check if session is still valid
           const now = Math.floor(Date.now() / 1000);
           if (session.expires_at > now) {
-            // Set up auto-refresh for existing session
             this.scheduleTokenRefresh(session);
           } else {
-            // Session expired, try to refresh
             await this.refreshSession();
           }
         }
       }
-    } catch (error) {
-      console.error('Error initializing auth service:', error);
+    } catch (err) {
+      console.error('Error initializing auth service:', err);
     }
   }
 }

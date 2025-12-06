@@ -21,7 +21,7 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '10.214.44.159';
+const LOCAL_IP_ADDRESS = '192.168.1.15';
 const BACKEND_PORT = '3000';
 
 /**
@@ -62,6 +62,7 @@ export const API_ENDPOINTS = {
   SIGN_OUT: `${API_BASE_URL}/api/auth/signout`,
   GET_SESSION: `${API_BASE_URL}/api/auth/session`,
   REFRESH_SESSION: `${API_BASE_URL}/api/auth/refresh`,
+  UPDATE_USERNAME: `${API_BASE_URL}/api/profile/me`,
 } as const;
 
 /**

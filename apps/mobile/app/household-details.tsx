@@ -33,7 +33,8 @@ interface Member {
   role_name: string;
   joined_at: string;
   profile: {
-    name: string;
+    display_name: string;
+    pseudo: string;
     avatar_url?: string;
   };
 }
@@ -227,7 +228,8 @@ export default function HouseholdDetailsScreen() {
           />
         </View>
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.profile.name}</Text>
+          <Text style={styles.memberName}>{member.profile.display_name}</Text>
+          <Text style={styles.memberPseudo}>@{member.profile.pseudo}</Text>
           <View
             style={[
               styles.roleBadge,
@@ -292,13 +294,19 @@ export default function HouseholdDetailsScreen() {
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.text,
-      marginBottom: 4,
+      marginBottom: 2,
+    },
+    memberPseudo: {
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      marginBottom: 6,
     },
     roleBadge: {
       alignSelf: 'flex-start',
       paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 12,
+      marginTop: 4,
     },
     roleText: {
       fontSize: 12,
@@ -366,18 +374,10 @@ export default function HouseholdDetailsScreen() {
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
-    codeContainer: {
-      backgroundColor: theme.colors.divider,
-      padding: 20,
-      borderRadius: 12,
-      marginBottom: 24,
-      borderWidth: 2,
-      borderColor: theme.colors.primary,
-      borderStyle: 'dashed',
-    },
     textCodeContainer: {
       backgroundColor: theme.colors.divider,
-      padding: 32,
+      paddingVertical: 50,
+      paddingHorizontal: 20,
       borderRadius: 12,
       marginBottom: 24,
       borderWidth: 2,
@@ -387,11 +387,13 @@ export default function HouseholdDetailsScreen() {
       justifyContent: 'center',
     },
     inviteCodeText: {
-      fontSize: 32,
+      fontSize: 28,
       fontWeight: 'bold',
       color: theme.colors.text,
       textAlign: 'center',
-      letterSpacing: 4,
+      letterSpacing: 2,
+      lineHeight: 40,
+      includeFontPadding: false,
     },
     shareButton: {
       backgroundColor: theme.colors.primary,
@@ -664,10 +666,6 @@ export default function HouseholdDetailsScreen() {
                           color={theme.isDark ? '#fff' : '#333'}
                           backgroundColor={theme.isDark ? '#333' : '#fff'}
                         />
-                      </View>
-
-                      <View style={styles.codeContainer}>
-                        <Text style={styles.inviteCodeText}>{inviteCode}</Text>
                       </View>
 
                       <TouchableOpacity

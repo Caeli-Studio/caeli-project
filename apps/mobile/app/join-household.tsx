@@ -27,9 +27,18 @@ import { apiService } from '@/services/api.service';
 export default function JoinHouseholdScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const [mode, setMode] = useState<'choice' | 'scan' | 'manual'>('choice');
+  const [mode, setMode] = useState<'choice' | 'scan' | 'manual' | 'confirm'>(
+    'choice'
+  );
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedInvitation, setScannedInvitation] = useState<{
+    code: string;
+    groupName: string;
+    groupId: string;
+    membersCount?: number;
+  } | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
   const handleScanCode = async (code: string) => {
@@ -55,6 +64,7 @@ export default function JoinHouseholdScreen() {
       console.error('Error accepting invitation:', error);
       Alert.alert('Erreur', "Code d'invitation invalide ou expiré.");
     } finally {
+      setIsScanning(false);
       setLoading(false);
     }
   };
@@ -68,9 +78,136 @@ export default function JoinHouseholdScreen() {
     await handleScanCode(inviteCode);
   };
 
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
+  const handleConfirmJoin = async () => {
+    if (!scannedInvitation) return;
+
+    try {
+      setLoading(true);
+      const response = await apiService.post<{
+        success: boolean;
+        membership: unknown;
+        message: string;
+      }>(`/api/invitations/${scannedInvitation.code}/accept`, {
+        code_or_pseudo: scannedInvitation.code,
+      });
+
+      if (response.success) {
+        Alert.alert(
+          'Succès',
+          `Vous avez rejoint ${scannedInvitation.groupName} !`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/organisation'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error accepting invitation:', error);
+
+      // Check if user is already a member
+      if (
+        error?.response?.status === 400 &&
+        (error?.response?.data?.error === 'Already a member' ||
+          error?.response?.data?.message
+            ?.toLowerCase()
+            ?.includes('already a member'))
+      ) {
+        Alert.alert(
+          'Déjà membre',
+          `Vous êtes déjà membre de ${scannedInvitation.groupName}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/organisation'),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Check for expired or fully used invitations
+      if (error?.response?.status === 410) {
+        const errorMsg =
+          error?.response?.data?.error === 'Invitation expired'
+            ? 'Cette invitation a expiré'
+            : "Cette invitation a atteint son nombre maximum d'utilisations";
+        Alert.alert('Invitation invalide', errorMsg);
+        setScannedInvitation(null);
+        setIsScanning(false);
+        setMode('choice');
+        return;
+      }
+
+      // Generic error - allow retry by not resetting state
+      Alert.alert(
+        'Erreur',
+        "Impossible de rejoindre l'organisation. Vérifiez votre connexion et réessayez.",
+        [
+          {
+            text: 'Réessayer',
+            onPress: () => handleConfirmJoin(),
+          },
+          {
+            text: 'Annuler',
+            style: 'cancel',
+            onPress: () => {
+              setScannedInvitation(null);
+              setIsScanning(false);
+              setMode('choice');
+            },
+          },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+    // Prevent re-scan if already scanning or already have a scanned invitation
+    if (isScanning || scannedInvitation) {
+      return;
+    }
+
+    console.log('QR Code scanné:', data, 'Longueur:', data?.length);
     if (data && data.length === 6) {
-      handleScanCode(data);
+      setIsScanning(true);
+      console.log("Code valide, récupération des détails de l'invitation...");
+
+      try {
+        // Fetch invitation details
+        const response = await apiService.get<{
+          success: boolean;
+          invitation: {
+            code: string;
+            group: {
+              id: string;
+              name: string;
+              members_count?: number;
+            };
+          };
+        }>(`/api/invitations/${data}`);
+
+        if (response.success) {
+          // Store invitation details and switch to confirmation mode
+          setScannedInvitation({
+            code: data,
+            groupName: response.invitation.group.name,
+            groupId: response.invitation.group.id,
+            membersCount: response.invitation.group.members_count,
+          });
+          setMode('confirm');
+          console.log('Invitation trouvée:', response.invitation.group.name);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'invitation:", error);
+        Alert.alert('Erreur', "Code d'invitation invalide ou expiré");
+        setIsScanning(false);
+      }
+    } else {
+      console.log('Code invalide - longueur différente de 6 caractères');
     }
   };
 
@@ -240,6 +377,21 @@ export default function JoinHouseholdScreen() {
       color: theme.colors.textSecondary,
       fontSize: 14,
     },
+    confirmDetails: {
+      alignItems: 'center',
+      paddingVertical: 20,
+      marginBottom: 20,
+    },
+    orgName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 8,
+    },
+    orgMembers: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
   });
 
   return (
@@ -328,7 +480,7 @@ export default function JoinHouseholdScreen() {
             <CameraView
               style={styles.camera}
               facing="back"
-              onBarcodeScanned={handleBarCodeScanned}
+              onBarcodeScanned={isScanning ? undefined : handleBarCodeScanned}
               barcodeScannerSettings={{
                 barcodeTypes: ['qr'],
               }}
@@ -347,6 +499,55 @@ export default function JoinHouseholdScreen() {
             >
               <Text style={styles.cancelButtonText}>Annuler</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Confirmation View */}
+        {mode === 'confirm' && scannedInvitation && (
+          <View style={styles.content}>
+            <Card style={styles.card}>
+              <CardHeader>
+                <CardTitle style={{ color: theme.colors.text }}>
+                  Rejoindre cette organisation ?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <View style={styles.confirmDetails}>
+                  <Text style={styles.orgName}>
+                    {scannedInvitation.groupName}
+                  </Text>
+                  {scannedInvitation.membersCount !== undefined && (
+                    <Text style={styles.orgMembers}>
+                      {scannedInvitation.membersCount} membre(s)
+                    </Text>
+                  )}
+                </View>
+
+                <Button
+                  variant="default"
+                  onPress={handleConfirmJoin}
+                  disabled={loading}
+                  style={styles.submitButton}
+                >
+                  {loading ? (
+                    <Text style={styles.submitButtonText}>Connexion...</Text>
+                  ) : (
+                    <Text style={styles.submitButtonText}>Rejoindre</Text>
+                  )}
+                </Button>
+
+                <TouchableOpacity
+                  style={styles.backToChoiceButton}
+                  onPress={() => {
+                    setScannedInvitation(null);
+                    setIsScanning(false);
+                    setMode('choice');
+                  }}
+                >
+                  <Text style={styles.backToChoiceText}>Annuler</Text>
+                </TouchableOpacity>
+              </CardContent>
+            </Card>
           </View>
         )}
 

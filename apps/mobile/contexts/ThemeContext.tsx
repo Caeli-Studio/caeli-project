@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 import React, {
   createContext,
   useState,
@@ -204,6 +205,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const systemColorScheme = useColorScheme();
+  const { setColorScheme } = useNativeWindColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
   const [isReady, setIsReady] = useState(false);
 
@@ -249,6 +251,13 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
     isDark,
     colors: isDark ? darkTheme : lightTheme,
   };
+
+  // Sync with NativeWind colorScheme
+  useEffect(() => {
+    if (isReady) {
+      setColorScheme(isDark ? 'dark' : 'light');
+    }
+  }, [isDark, isReady, setColorScheme]);
 
   // Don't render until theme is loaded
   if (!isReady) {

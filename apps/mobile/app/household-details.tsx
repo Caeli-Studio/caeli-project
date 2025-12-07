@@ -207,20 +207,24 @@ export default function HouseholdDetailsScreen() {
 
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
-      owner: '#C5BD83',
-      admin: '#8B7355',
-      member: '#666',
-      child: '#999',
-      guest: '#bbb',
+      owner: theme.colors.primary,
+      admin: theme.colors.primaryDark,
+      member: theme.colors.textSecondary,
+      child: theme.colors.textTertiary,
+      guest: theme.colors.textTertiary,
     };
-    return colors[role] || '#666';
+    return colors[role] || theme.colors.textSecondary;
   };
 
   const renderMember = (member: Member) => (
     <Card key={member.id} style={styles.memberCard}>
       <CardContent style={styles.memberContent}>
         <View style={styles.memberAvatar}>
-          <Ionicons name="person-circle" size={48} color="#C5BD83" />
+          <Ionicons
+            name="person-circle"
+            size={48}
+            color={theme.colors.primary}
+          />
         </View>
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{member.profile.name}</Text>
@@ -267,9 +271,11 @@ export default function HouseholdDetailsScreen() {
     },
     section: {
       marginBottom: 20,
+      backgroundColor: theme.colors.card,
     },
     memberCard: {
       marginBottom: 12,
+      backgroundColor: theme.colors.card,
     },
     memberContent: {
       flexDirection: 'row',
@@ -655,8 +661,8 @@ export default function HouseholdDetailsScreen() {
                         <QRCode
                           value={inviteCode}
                           size={200}
-                          color="#333"
-                          backgroundColor="#fff"
+                          color={theme.isDark ? '#fff' : '#333'}
+                          backgroundColor={theme.isDark ? '#333' : '#fff'}
                         />
                       </View>
 
@@ -758,6 +764,7 @@ export default function HouseholdDetailsScreen() {
                       value={pseudoInput}
                       onChangeText={setPseudoInput}
                       placeholder="pseudo"
+                      placeholderTextColor={theme.colors.textTertiary}
                       autoCapitalize="none"
                       autoCorrect={false}
                     />

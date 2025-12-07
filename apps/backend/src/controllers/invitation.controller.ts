@@ -269,6 +269,33 @@ export async function acceptInvitation(
 
     const { code_or_pseudo } = request.params;
 
+    // Ensure user profile exists
+    const { data: existingProfile } = await request.supabaseClient
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', request.user.sub)
+      .single();
+
+    if (!existingProfile) {
+      request.log.info(`Creating missing profile for user ${request.user.sub}`);
+
+      const { error: profileError } = await request.supabaseClient
+        .from('profiles')
+        .insert({
+          user_id: request.user.sub,
+          display_name: request.user.name || request.user.email || 'User',
+        });
+
+      if (profileError) {
+        request.log.error({ error: profileError }, 'Failed to create profile');
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to create user profile',
+          message: profileError.message,
+        });
+      }
+    }
+
     // Find invitation
     const { data: invitation, error: invError } = await request.supabaseClient
       .from('invitations')
@@ -519,11 +546,12 @@ export async function getPendingInvitations(
       .from('invitations')
       .select(
         `
-        *,
-        group:groups(id, name, type),
-        creator:memberships!created_by(
-          user:profiles(user_id, name, avatar_url)
-        )
+        id,
+        pseudo,
+        expires_at,
+        current_uses,
+        max_uses,
+        group:groups(id, name, type)
       `
       )
       .eq('pseudo', profile.pseudo)
@@ -539,9 +567,14 @@ export async function getPendingInvitations(
       });
     }
 
+    // Filter out fully used invitations
+    const availableInvitations = (invitations || []).filter(
+      (inv) => inv.current_uses < inv.max_uses
+    );
+
     return reply.send({
       success: true,
-      invitations: invitations || [],
+      invitations: availableInvitations,
     });
   } catch (err) {
     request.log.error(err, 'Error in getPendingInvitations');

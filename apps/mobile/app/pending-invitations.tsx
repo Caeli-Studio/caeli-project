@@ -20,6 +20,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 
 interface PendingInvitation {
@@ -35,6 +36,7 @@ interface PendingInvitation {
 
 export default function PendingInvitationsScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -151,6 +153,144 @@ export default function PendingInvitationsScreen() {
     return `Expire dans ${diffInDays} jours`;
   };
 
+  // Dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    header: {
+      backgroundColor: theme.colors.primary,
+      paddingTop: 60,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      marginRight: 15,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+      marginBottom: 16,
+    },
+    invitationCard: {
+      marginBottom: 16,
+      backgroundColor: theme.colors.card,
+    },
+    invitationContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+    },
+    invitationIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: theme.colors.primaryLight + '20',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    invitationInfo: {
+      flex: 1,
+    },
+    invitationGroupName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    invitationType: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 2,
+    },
+    expiryText: {
+      fontSize: 12,
+      color: theme.colors.textTertiary,
+      fontStyle: 'italic',
+    },
+    actionsContainer: {
+      flexDirection: 'row',
+      padding: 16,
+      paddingTop: 0,
+      gap: 12,
+    },
+    refuseButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: theme.colors.buttonSecondary,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    refuseButtonText: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 6,
+    },
+    acceptButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: theme.colors.primary,
+    },
+    acceptButtonText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 6,
+    },
+    emptyCard: {
+      marginTop: 40,
+      backgroundColor: theme.colors.card,
+    },
+    emptyIcon: {
+      alignSelf: 'center',
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      textAlign: 'center',
+      color: theme.colors.text,
+    },
+    emptyDescription: {
+      fontSize: 14,
+      textAlign: 'center',
+      color: theme.colors.textSecondary,
+      marginTop: 8,
+    },
+  });
+
   const renderInvitation = (invitation: PendingInvitation) => {
     const isLoading = actionLoading === invitation.id;
 
@@ -161,7 +301,7 @@ export default function PendingInvitationsScreen() {
             <MaterialIcons
               name={getTypeIcon(invitation.group.type)}
               size={32}
-              color="#C5BD83"
+              color={theme.colors.primary}
             />
           </View>
 
@@ -185,10 +325,17 @@ export default function PendingInvitationsScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#999" />
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.textSecondary}
+              />
             ) : (
               <>
-                <MaterialIcons name="close" size={20} color="#999" />
+                <MaterialIcons
+                  name="close"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
                 <Text style={styles.refuseButtonText}>Refuser</Text>
               </>
             )}
@@ -217,7 +364,7 @@ export default function PendingInvitationsScreen() {
     return (
       <ProtectedRoute>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C5BD83" />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       </ProtectedRoute>
@@ -255,7 +402,11 @@ export default function PendingInvitationsScreen() {
             <Card style={styles.emptyCard}>
               <CardHeader>
                 <View style={styles.emptyIcon}>
-                  <MaterialIcons name="inbox" size={64} color="#ccc" />
+                  <MaterialIcons
+                    name="inbox"
+                    size={64}
+                    color={theme.colors.textTertiary}
+                  />
                 </View>
                 <CardTitle style={styles.emptyTitle}>
                   Aucune invitation
@@ -273,140 +424,3 @@ export default function PendingInvitationsScreen() {
     </ProtectedRoute>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-  header: {
-    backgroundColor: '#C5BD83',
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-  },
-  invitationCard: {
-    marginBottom: 16,
-    backgroundColor: '#fff',
-  },
-  invitationContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  invitationIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f9f8f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  invitationInfo: {
-    flex: 1,
-  },
-  invitationGroupName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  invitationType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  expiryText: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingTop: 0,
-    gap: 12,
-  },
-  refuseButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  refuseButtonText: {
-    color: '#999',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  acceptButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#C5BD83',
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  emptyCard: {
-    marginTop: 40,
-    backgroundColor: '#fff',
-  },
-  emptyIcon: {
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  emptyDescription: {
-    fontSize: 14,
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 8,
-  },
-});

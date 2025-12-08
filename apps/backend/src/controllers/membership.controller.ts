@@ -23,7 +23,7 @@ export async function getMembers(
       .select(
         `
         *,
-        profile:profiles(*),
+        profile:profiles!user_id(*),
         preferences:member_preferences(*)
       `
       )
@@ -68,8 +68,8 @@ export async function getMember(
       .select(
         `
         *,
-        profile:profiles(*),
-        group:groups(*),
+        profile:profiles!user_id(*),
+        group:groups!group_id(*),
         preferences:member_preferences(*)
       `
       )

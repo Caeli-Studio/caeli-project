@@ -17,7 +17,7 @@ export async function createInvitation(
   reply: FastifyReply
 ) {
   try {
-    const { type, pseudo, expires_in_hours = 24, max_uses = 1 } = request.body;
+    const { type, pseudo, expires_in_hours = 168, max_uses = 1 } = request.body; // 168h = 7 days
 
     // Validate invitation type
     if (type !== 'qr' && type !== 'pseudo') {
@@ -269,6 +269,33 @@ export async function acceptInvitation(
 
     const { code_or_pseudo } = request.params;
 
+    // Ensure user profile exists
+    const { data: existingProfile } = await request.supabaseClient
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', request.user.sub)
+      .single();
+
+    if (!existingProfile) {
+      request.log.info(`Creating missing profile for user ${request.user.sub}`);
+
+      const { error: profileError } = await request.supabaseClient
+        .from('profiles')
+        .insert({
+          user_id: request.user.sub,
+          display_name: request.user.name || request.user.email || 'User',
+        });
+
+      if (profileError) {
+        request.log.error({ error: profileError }, 'Failed to create profile');
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to create user profile',
+          message: profileError.message,
+        });
+      }
+    }
+
     // Find invitation
     const { data: invitation, error: invError } = await request.supabaseClient
       .from('invitations')
@@ -472,6 +499,174 @@ export async function revokeInvitation(
     });
   } catch (err) {
     request.log.error(err, 'Error in revokeInvitation');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Get pending invitations for current user (by pseudo)
+ * GET /api/invitations/pending
+ */
+export async function getPendingInvitations(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    const userId = request.user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        error: 'Unauthorized',
+        message: 'User ID not found',
+      });
+    }
+
+    // Get user's pseudo
+    const { data: profile } = await request.supabaseClient
+      .from('profiles')
+      .select('pseudo')
+      .eq('user_id', userId)
+      .single();
+
+    if (!profile?.pseudo) {
+      return reply.send({
+        success: true,
+        invitations: [],
+        message: 'No pseudo set, no invitations available',
+      });
+    }
+
+    // Get pending invitations for this pseudo
+    const { data: invitations, error } = await request.supabaseClient
+      .from('invitations')
+      .select(
+        `
+        id,
+        pseudo,
+        expires_at,
+        current_uses,
+        max_uses,
+        group:groups(id, name, type)
+      `
+      )
+      .eq('pseudo', profile.pseudo)
+      .is('revoked_at', null)
+      .gt('expires_at', new Date().toISOString());
+
+    if (error) {
+      request.log.error(error, 'Failed to fetch pending invitations');
+      return reply.status(500).send({
+        success: false,
+        error: 'Database error',
+        message: error.message,
+      });
+    }
+
+    // Filter out fully used invitations
+    const availableInvitations = (invitations || []).filter(
+      (inv) => inv.current_uses < inv.max_uses
+    );
+
+    return reply.send({
+      success: true,
+      invitations: availableInvitations,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in getPendingInvitations');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Refuse an invitation by ID
+ * POST /api/invitations/:invitation_id/refuse
+ */
+export async function refuseInvitation(
+  request: FastifyRequest<{ Params: { invitation_id: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    const userId = request.user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        error: 'Unauthorized',
+        message: 'User ID not found',
+      });
+    }
+
+    // Get user's pseudo
+    const { data: profile } = await request.supabaseClient
+      .from('profiles')
+      .select('pseudo')
+      .eq('user_id', userId)
+      .single();
+
+    if (!profile?.pseudo) {
+      return reply.status(400).send({
+        success: false,
+        error: 'No pseudo set',
+        message: 'You must set a pseudo before managing invitations',
+      });
+    }
+
+    // Get invitation and verify it's for this user
+    const { data: invitation, error: fetchError } = await request.supabaseClient
+      .from('invitations')
+      .select('*, group:groups(id, name, type)')
+      .eq('id', request.params.invitation_id)
+      .eq('pseudo', profile.pseudo)
+      .is('revoked_at', null)
+      .single();
+
+    if (fetchError || !invitation) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Invitation not found',
+        message: 'Invalid invitation or not addressed to you',
+      });
+    }
+
+    // Check if expired
+    if (new Date(invitation.expires_at) < new Date()) {
+      return reply.status(410).send({
+        success: false,
+        error: 'Invitation expired',
+        message: 'This invitation has expired',
+      });
+    }
+
+    // Revoke the invitation (mark as refused)
+    const { error: revokeError } = await request.supabaseClient
+      .from('invitations')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', request.params.invitation_id);
+
+    if (revokeError) {
+      request.log.error(revokeError, 'Failed to refuse invitation');
+      return reply.status(500).send({
+        success: false,
+        error: 'Database error',
+        message: revokeError.message,
+      });
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Invitation refused successfully',
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in refuseInvitation');
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',

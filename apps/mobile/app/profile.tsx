@@ -17,36 +17,13 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
+import { useRouter } from 'expo-router';
+
 const Profile = () => {
   const { user, signOut } = useAuth();
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
-  const [profileImage, setProfileImage] = useState<string | null>(
-    user?.avatar || null
-  );
+  const router = useRouter();
 
-  const pickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.status !== 'granted') {
-      Alert.alert(
-        'Permission refusée',
-        "Autorisez l'accès à la galerie pour changer la photo."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setProfileImage(uri);
-    }
-  };
 
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
@@ -150,18 +127,14 @@ const Profile = () => {
         <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
           {/* PHOTO DE PROFIL */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.profilePic} onPress={pickImage}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.image} />
+            <View style={styles.profilePic}>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar_url }} style={styles.image} />
               ) : (
-                <MaterialIcons
-                  name="person"
-                  size={60}
-                  color={theme.colors.surface}
-                />
+                <MaterialIcons name="person" size={60} color={theme.colors.surface} />
               )}
-            </TouchableOpacity>
-            <Text style={styles.userName}>{user?.name || 'User'}</Text>
+            </View>
+            <Text style={styles.userName}>{user?.display_name || 'User'}</Text>
             <Text style={styles.userRole}>{user?.email || ''}</Text>
           </View>
 
@@ -171,19 +144,14 @@ const Profile = () => {
               <Text style={styles.statNumber}>42</Text>
               <Text style={styles.statLabel}>Tâches faites</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>5</Text>
-              <Text style={styles.statLabel}>Aujourd’hui</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>7🔥</Text>
-              <Text style={styles.statLabel}>Jours actifs</Text>
-            </View>
           </View>
 
           {/* OPTIONS */}
           <View style={styles.optionsContainer}>
-            <TouchableOpacity style={styles.optionButton}>
+            <TouchableOpacity 
+            style={styles.optionButton}
+            onPress={() => router.push("/edit-profile")}
+            >
               <MaterialIcons name="edit" size={24} color={theme.colors.text} />
               <Text style={styles.optionText}>Modifier le profil</Text>
             </TouchableOpacity>

@@ -11,6 +11,8 @@ import { swaggerOptions, swaggerUiOptions } from './config/swagger';
 import { registerRoutes } from './routes';
 import { errorHandler, notFoundHandler } from './utils/errors';
 import { createLoggerConfig, customLogger } from './utils/logger';
+import fastifyMultipart from '@fastify/multipart';
+
 
 /**
  * Environment configuration
@@ -54,6 +56,12 @@ async function setupMiddleware(app: ReturnType<typeof createApp>) {
 
   // Sensible plugin for useful utilities
   await app.register(sensible);
+
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB max
+    },
+  });
 
   // Register Swagger/OpenAPI documentation
   await app.register(swagger, swaggerOptions);

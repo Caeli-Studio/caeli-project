@@ -128,7 +128,7 @@ const Profile = () => {
           {/* PHOTO DE PROFIL */}
           <View style={styles.header}>
             <View style={styles.profilePic}>
-              {user?.avatar ? (
+              {user?.avatar_url ? (
                 <Image source={{ uri: user.avatar_url }} style={styles.image} />
               ) : (
                 <MaterialIcons name="person" size={60} color={theme.colors.surface} />

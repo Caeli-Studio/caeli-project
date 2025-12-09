@@ -254,3 +254,76 @@ export async function createProfile(
     });
   }
 }
+
+export async function uploadAvatar(request, reply) {
+  try {
+    await request.jwtVerify();
+
+    const file = await request.file();
+
+    if (!file) {
+      return reply.status(400).send({
+        success: false,
+        error: "No file provided",
+      });
+    }
+
+    const fileBuffer = await file.toBuffer();
+
+    // Nom du fichier : avatars/{userId}.jpg
+    const filename = `avatars/${request.user.sub}-${Date.now()}.jpg`;
+
+    // Upload dans Supabase Storage
+    const { data, error: uploadError } = await request.supabaseClient.storage
+      .from("avatars")
+      .upload(filename, fileBuffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error(uploadError);
+      return reply.status(500).send({
+        success: false,
+        error: "Failed to upload avatar",
+      });
+    }
+
+    // Récupérer l’URL publique
+    const { data: publicUrlData } = request.supabaseClient.storage
+      .from("avatars")
+      .getPublicUrl(filename);
+
+    const avatar_url = publicUrlData.publicUrl;
+
+    // Update profile DB
+    const { data: profile, error: updateError } =
+      await request.supabaseClient
+        .from("profiles")
+        .update({ avatar_url })
+        .eq("user_id", request.user.sub)
+        .select()
+        .single();
+
+    if (updateError) {
+      console.error(updateError);
+      return reply.status(500).send({
+        success: false,
+        error: "Failed to update avatar URL",
+      });
+    }
+
+    return reply.send({
+      success: true,
+      profile,
+    });
+
+  } catch (err) {
+    console.error("Error in uploadAvatar:", err);
+    return reply.status(500).send({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+}
+

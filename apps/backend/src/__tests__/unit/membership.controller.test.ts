@@ -209,7 +209,7 @@ describe('Membership Controller - Unit Tests', () => {
       const mockRequest = {
         supabaseClient: mockSupabase,
         membership: { id: 'different-member-id' },
-        params: { group_id: mockGroupId, member_id: mockMemberId },
+        params: { group_id: mockGroupId, membership_id: mockMemberId },
         log: { error: vi.fn() },
       };
 

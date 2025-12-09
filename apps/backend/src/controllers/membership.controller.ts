@@ -340,12 +340,14 @@ export async function updateMember(
  * Remove a member from the group
  */
 export async function removeMember(
-  request: FastifyRequest<{ Params: { group_id: string; member_id: string } }>,
+  request: FastifyRequest<{
+    Params: { group_id: string; membership_id: string };
+  }>,
   reply: FastifyReply
 ) {
   try {
     // Prevent self-removal
-    if (request.params.member_id === request.membership?.id) {
+    if (request.params.membership_id === request.membership?.id) {
       return reply.status(400).send({
         success: false,
         error: 'Cannot remove yourself',
@@ -357,7 +359,7 @@ export async function removeMember(
     const { data: member } = await request.supabaseClient
       .from('memberships')
       .select('role_name')
-      .eq('id', request.params.member_id)
+      .eq('id', request.params.membership_id)
       .single();
 
     // Prevent removing the last owner
@@ -382,7 +384,7 @@ export async function removeMember(
     const { error } = await request.supabaseClient
       .from('memberships')
       .update({ left_at: new Date().toISOString() })
-      .eq('id', request.params.member_id)
+      .eq('id', request.params.membership_id)
       .eq('group_id', request.params.group_id);
 
     if (error) {

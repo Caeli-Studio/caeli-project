@@ -24,6 +24,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 
@@ -50,6 +51,7 @@ interface Invitation {
 
 export default function HouseholdDetailsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { theme } = useTheme();
   const { groupId, groupName } = useLocalSearchParams<{
     groupId: string;
@@ -65,6 +67,7 @@ export default function HouseholdDetailsScreen() {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [pseudoInput, setPseudoInput] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -84,6 +87,65 @@ export default function HouseholdDetailsScreen() {
       setLoading(false);
     }
   }, [groupId]);
+
+  const removeMember = async (member: Member) => {
+    // Extract values before Alert to avoid closure issues
+    const memberId = member.id;
+    const memberName = member.profile.display_name;
+
+    // Confirmation dialog
+    Alert.alert(
+      'Retirer le membre',
+      `Êtes-vous sûr de vouloir retirer ${memberName} du foyer ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Retirer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setRemovingMemberId(memberId);
+
+              const response = await apiService.delete<{
+                success: boolean;
+                message: string;
+              }>(`/api/groups/${groupId}/members/${memberId}`);
+
+              if (response.success) {
+                Alert.alert('Succès', `${memberName} a été retiré du foyer.`);
+                // Refresh members list
+                await loadMembers();
+              }
+            } catch (error: any) {
+              console.error('Error removing member:', error);
+
+              // Handle specific error messages
+              if (error?.response?.data?.error === 'Cannot remove yourself') {
+                Alert.alert(
+                  'Erreur',
+                  'Vous ne pouvez pas vous retirer vous-même.'
+                );
+              } else if (
+                error?.response?.data?.error === 'Cannot remove the last owner'
+              ) {
+                Alert.alert(
+                  'Erreur',
+                  'Impossible de retirer le dernier maître de foyer.'
+                );
+              } else {
+                Alert.alert('Erreur', 'Impossible de retirer ce membre.');
+              }
+            } finally {
+              setRemovingMemberId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     loadMembers();
@@ -217,33 +279,64 @@ export default function HouseholdDetailsScreen() {
     return colors[role] || theme.colors.textSecondary;
   };
 
-  const renderMember = (member: Member) => (
-    <Card key={member.id} style={styles.memberCard}>
-      <CardContent style={styles.memberContent}>
-        <View style={styles.memberAvatar}>
-          <Ionicons
-            name="person-circle"
-            size={48}
-            color={theme.colors.primary}
-          />
-        </View>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.profile.display_name}</Text>
-          <Text style={styles.memberPseudo}>@{member.profile.pseudo}</Text>
-          <View
-            style={[
-              styles.roleBadge,
-              { backgroundColor: getRoleColor(member.role_name) },
-            ]}
-          >
-            <Text style={styles.roleText}>
-              {getRoleLabel(member.role_name)}
-            </Text>
+  const renderMember = (member: Member) => {
+    // Identify current user's membership
+    const currentUserMembership = members.find((m) => m.user_id === user?.id);
+
+    const isCurrentUser = member.user_id === user?.id;
+    const canManageMembers =
+      currentUserMembership?.role_name === 'owner' ||
+      currentUserMembership?.role_name === 'admin';
+    const showRemoveButton = canManageMembers && !isCurrentUser;
+    const isRemoving = removingMemberId === member.id;
+
+    return (
+      <Card key={member.id} style={styles.memberCard}>
+        <CardContent style={styles.memberContent}>
+          <View style={styles.memberAvatar}>
+            <Ionicons
+              name="person-circle"
+              size={48}
+              color={theme.colors.primary}
+            />
           </View>
-        </View>
-      </CardContent>
-    </Card>
-  );
+          <View style={styles.memberInfo}>
+            <Text style={styles.memberName}>{member.profile.display_name}</Text>
+            <Text style={styles.memberPseudo}>@{member.profile.pseudo}</Text>
+            <View
+              style={[
+                styles.roleBadge,
+                { backgroundColor: getRoleColor(member.role_name) },
+              ]}
+            >
+              <Text style={styles.roleText}>
+                {getRoleLabel(member.role_name)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Remove button - only show for owners/admins on other members */}
+          {showRemoveButton && (
+            <TouchableOpacity
+              onPress={() => removeMember(member)}
+              disabled={isRemoving}
+              style={styles.removeButton}
+            >
+              {isRemoving ? (
+                <ActivityIndicator size="small" color={theme.colors.error} />
+              ) : (
+                <MaterialIcons
+                  name="person-remove"
+                  size={24}
+                  color={theme.colors.error}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   // Dynamic styles based on theme
   const styles = StyleSheet.create({
@@ -464,6 +557,10 @@ export default function HouseholdDetailsScreen() {
     },
     buttonDisabled: {
       opacity: 0.5,
+    },
+    removeButton: {
+      padding: 8,
+      marginLeft: 8,
     },
   });
 

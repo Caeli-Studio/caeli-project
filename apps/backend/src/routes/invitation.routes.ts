@@ -2,7 +2,9 @@ import {
   acceptInvitation,
   createInvitation,
   getInvitation,
+  getPendingInvitations,
   listInvitations,
+  refuseInvitation,
   revokeInvitation,
 } from '../controllers/invitation.controller';
 import { loadMembership, requirePermission } from '../middleware/permissions';
@@ -53,8 +55,9 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
             type: 'number',
             minimum: 1,
             maximum: 720,
-            default: 24,
-            description: 'Hours until invitation expires (default: 24)',
+            default: 168,
+            description:
+              'Hours until invitation expires (default: 168 = 7 days)',
           },
           max_uses: {
             type: 'number',
@@ -216,6 +219,63 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
     handler: revokeInvitation,
   });
 
+  // Get pending invitations for current user
+  fastify.get('/invitations/pending', {
+    onRequest: [verifyJWT],
+    schema: {
+      tags: ['Invitations'],
+      summary: 'Get pending invitations',
+      description:
+        'Lists all pending invitations for the current user (by pseudo)',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'List of pending invitations',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            invitations: { type: 'array', items: { type: 'object' } },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: getPendingInvitations,
+  });
+
+  // Refuse invitation
+  fastify.post('/invitations/:invitation_id/refuse', {
+    onRequest: [verifyJWT],
+    schema: {
+      tags: ['Invitations'],
+      summary: 'Refuse invitation',
+      description: 'Refuses an invitation addressed to the current user',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['invitation_id'],
+        properties: {
+          invitation_id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Invitation ID',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: 'Invitation refused successfully',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+    handler: refuseInvitation,
+  });
+
   // Log registered routes
   customLogger.route('POST', '/api/groups/:group_id/invitations');
   customLogger.route('GET', '/api/invitations/:code_or_pseudo');
@@ -225,4 +285,6 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
     'DELETE',
     '/api/groups/:group_id/invitations/:invitation_id'
   );
+  customLogger.route('GET', '/api/invitations/pending');
+  customLogger.route('POST', '/api/invitations/:invitation_id/refuse');
 }

@@ -211,6 +211,40 @@ export async function getSession(request: FastifyRequest, reply: FastifyReply) {
       });
     }
 
+    // Ensure user profile exists
+    const { data: existingProfile } = await request.supabaseClient
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', data.user.id)
+      .single();
+
+    if (!existingProfile) {
+      request.log.info(`Creating missing profile for user ${data.user.id}`);
+
+      const { error: profileError } = await request.supabaseClient
+        .from('profiles')
+        .insert({
+          user_id: data.user.id,
+          display_name:
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            data.user.email ||
+            'User',
+          avatar_url:
+            data.user.user_metadata?.avatar_url ||
+            data.user.user_metadata?.picture,
+        });
+
+      if (profileError) {
+        request.log.error({ error: profileError }, 'Failed to create profile');
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to create user profile',
+          message: profileError.message,
+        });
+      }
+    }
+
     return reply.send({
       success: true,
       user: {
@@ -266,6 +300,40 @@ export async function refreshSession(
         error: 'Failed to refresh session',
         message: error.message,
       });
+    }
+
+    // Ensure user profile exists
+    const { data: existingProfile } = await request.server.supabaseClient
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', data.user?.id)
+      .single();
+
+    if (!existingProfile && data.user?.id) {
+      request.log.info(`Creating missing profile for user ${data.user.id}`);
+
+      const { error: profileError } = await request.server.supabaseClient
+        .from('profiles')
+        .insert({
+          user_id: data.user.id,
+          display_name:
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            data.user.email ||
+            'User',
+          avatar_url:
+            data.user.user_metadata?.avatar_url ||
+            data.user.user_metadata?.picture,
+        });
+
+      if (profileError) {
+        request.log.error({ error: profileError }, 'Failed to create profile');
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to create user profile',
+          message: profileError.message,
+        });
+      }
     }
 
     return reply.send({

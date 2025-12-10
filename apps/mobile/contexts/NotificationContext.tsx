@@ -244,11 +244,11 @@ export function NotificationProvider({
 
       // Navigate based on notification type
       if (data?.type === 'task_assigned' && data?.task_id) {
-        router.push(`/(app)/tasks/${data.task_id}`);
+        router.push(`/(app)/tasks/${data.task_id}` as any);
       } else if (data?.type === 'task_completed' && data?.task_id) {
-        router.push(`/(app)/tasks/${data.task_id}`);
+        router.push(`/(app)/tasks/${data.task_id}` as any);
       } else if (data?.type === 'transfer_request' && data?.transfer_id) {
-        router.push(`/(app)/transfers/${data.transfer_id}`);
+        router.push(`/(app)/transfers/${data.transfer_id}` as any);
       }
     });
 

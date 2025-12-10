@@ -20,7 +20,6 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
@@ -36,11 +35,14 @@ export default function HouseholdsScreen() {
   const { theme } = useTheme();
   const [households, setHouseholds] = useState<GroupWithMembership[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
 
   // Reload households when the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadHouseholds();
+      loadPendingInvitations();
     }, [])
   );
 
@@ -60,6 +62,23 @@ export default function HouseholdsScreen() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPendingInvitations = async () => {
+    try {
+      const response = await apiService.get<{
+        success: boolean;
+        invitations: unknown[];
+      }>('/api/invitations/pending');
+
+      if (response.success) {
+        setPendingInvitationsCount(response.invitations.length);
+      }
+    } catch (error) {
+      console.error('Error loading pending invitations:', error);
+      // Don't show error to user, just silently fail
+      setPendingInvitationsCount(0);
     }
   };
 
@@ -102,8 +121,13 @@ export default function HouseholdsScreen() {
     <Card style={styles.householdCard}>
       <TouchableOpacity
         onPress={() => {
-          // Navigate to household detail (to implement later)
-          router.push('/home');
+          router.push({
+            pathname: '/household-details',
+            params: {
+              groupId: item.group.id,
+              groupName: item.group.name,
+            },
+          });
         }}
       >
         <CardContent style={styles.householdCardContent}>
@@ -181,6 +205,34 @@ export default function HouseholdsScreen() {
       fontSize: 14,
       color: 'rgba(255, 255, 255, 0.9)',
       marginTop: 4,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    invitationsButton: {
+      padding: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 20,
+      position: 'relative',
+    },
+    badge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: '#ff4444',
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    badgeText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: 'bold',
     },
     refreshButton: {
       padding: 8,
@@ -286,11 +338,6 @@ export default function HouseholdsScreen() {
       color: theme.colors.textSecondary,
       lineHeight: 22,
     },
-    orText: {
-      fontSize: 15,
-      color: theme.colors.textSecondary,
-      paddingHorizontal: 8,
-    },
     primaryButton: {
       backgroundColor: theme.colors.primary,
       flexDirection: 'row',
@@ -301,7 +348,7 @@ export default function HouseholdsScreen() {
       gap: 8,
     },
     primaryButtonText: {
-      color: '#fff',
+      color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
     },
@@ -321,39 +368,6 @@ export default function HouseholdsScreen() {
       fontSize: 16,
       fontWeight: '600',
     },
-    codeInput: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      marginBottom: 12,
-      color: theme.colors.text,
-    },
-    joinButton: {
-      backgroundColor: theme.colors.divider,
-      borderWidth: 2,
-      borderColor: theme.colors.primary,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    joinButtonText: {
-      color: theme.colors.primary,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    divider: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: 16,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.colors.border,
-    },
     fab: {
       position: 'absolute',
       bottom: 90,
@@ -369,6 +383,28 @@ export default function HouseholdsScreen() {
       shadowOpacity: 0.3,
       shadowRadius: 6,
       elevation: 8,
+    },
+    fabMenuItem: {
+      position: 'absolute',
+      bottom: 160,
+      right: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.card,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 25,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 5,
+      gap: 8,
+    },
+    fabMenuText: {
+      color: theme.colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
     },
   });
 
@@ -401,12 +437,27 @@ export default function HouseholdsScreen() {
                   {households.length > 1 ? 's' : ''}
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={loadHouseholds}
-                style={styles.refreshButton}
-              >
-                <MaterialIcons name="refresh" size={28} color="#fff" />
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                {pendingInvitationsCount > 0 && (
+                  <TouchableOpacity
+                    onPress={() => router.push('/pending-invitations')}
+                    style={styles.invitationsButton}
+                  >
+                    <MaterialIcons name="mail" size={24} color="#fff" />
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {pendingInvitationsCount}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={loadHouseholds}
+                  style={styles.refreshButton}
+                >
+                  <MaterialIcons name="refresh" size={28} color="#fff" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <FlatList
@@ -416,12 +467,50 @@ export default function HouseholdsScreen() {
               contentContainerStyle={styles.listContainer}
             />
 
-            {/* FAB - Create Household */}
+            {/* FAB Menu */}
+            {showFabMenu && (
+              <>
+                <TouchableOpacity
+                  style={[styles.fabMenuItem, { bottom: 230 }]}
+                  onPress={() => {
+                    setShowFabMenu(false);
+                    router.push('/create-household');
+                  }}
+                >
+                  <MaterialIcons
+                    name="home"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.fabMenuText}>Créer un foyer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.fabMenuItem, { bottom: 160 }]}
+                  onPress={() => {
+                    setShowFabMenu(false);
+                    router.push('/join-household');
+                  }}
+                >
+                  <MaterialIcons
+                    name="qr-code-scanner"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.fabMenuText}>Rejoindre un foyer</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* FAB Button */}
             <TouchableOpacity
               style={styles.fab}
-              onPress={() => router.push('/create-household')}
+              onPress={() => setShowFabMenu(!showFabMenu)}
             >
-              <MaterialIcons name="add" size={32} color="#fff" />
+              <MaterialIcons
+                name={showFabMenu ? 'close' : 'add'}
+                size={32}
+                color="#fff"
+              />
             </TouchableOpacity>
           </>
         ) : (
@@ -492,9 +581,7 @@ export default function HouseholdsScreen() {
                 </CardHeader>
                 <CardContent>
                   <TouchableOpacity
-                    onPress={() =>
-                      Alert.alert('Scanner QR', 'Fonctionnalité à venir')
-                    }
+                    onPress={() => router.push('/join-household')}
                     style={styles.secondaryButton}
                   >
                     <MaterialIcons
@@ -503,22 +590,8 @@ export default function HouseholdsScreen() {
                       color={theme.colors.primary}
                     />
                     <Text style={styles.secondaryButtonText}>
-                      Scanner un QR code
+                      Rejoindre un foyer
                     </Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.orText}>ou</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-
-                  <Input
-                    placeholder="Code d'invitation"
-                    style={styles.codeInput}
-                  />
-                  <TouchableOpacity style={styles.joinButton}>
-                    <Text style={styles.joinButtonText}>Rejoindre</Text>
                   </TouchableOpacity>
                 </CardContent>
               </Card>

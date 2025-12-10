@@ -69,7 +69,7 @@ CREATE INDEX idx_groups_type ON groups(type);
 CREATE TABLE memberships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
     role_name TEXT NOT NULL DEFAULT 'member',
     importance INT DEFAULT 50 CHECK (importance BETWEEN 0 AND 100),
     custom_permissions JSONB DEFAULT '{}',

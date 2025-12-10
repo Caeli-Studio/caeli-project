@@ -429,6 +429,41 @@ const Assignement = () => {
       color: theme.colors.textSecondary,
       marginTop: 4,
     },
+
+    chipContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      rowGap: 10,
+      columnGap: 10,
+      marginBottom: 10,
+      width: '100%',
+    },
+
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+
+    chipSelected: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+
+    chipText: {
+      color: theme.colors.text,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+
+    chipTextSelected: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+
   });
 
   return (
@@ -555,32 +590,30 @@ const Assignement = () => {
 
                     <Text style={styles.assignLabel}>Assigné à :</Text>
 
-                    <View style={styles.membersList}>
+                    <View style={styles.chipContainer}>
                       {members.length === 0 ? (
-                        <Text style={styles.noteText}>
-                          Aucun membre dans ce foyer.
-                        </Text>
+                        <Text style={styles.noteText}>Aucun membre dans ce foyer.</Text>
                       ) : (
-                        members.map((m) => (
-                          <TouchableOpacity
-                            key={m.id}
-                            style={styles.memberItem}
-                            onPress={() => toggleMember(m.id)}
-                          >
-                            <View
-                              style={[
-                                styles.checkbox,
-                                selectedMembers.includes(m.id) &&
-                                  styles.checkboxChecked,
-                              ]}
-                            />
-                            <Text style={styles.memberName}>
-                              {m.profile.display_name}
-                            </Text>
-                          </TouchableOpacity>
-                        ))
+                        members.map((m) => {
+                          const selected = selectedMembers.includes(m.id);
+
+                          return (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={[styles.chip, selected && styles.chipSelected]}
+                              onPress={() => toggleMember(m.id)}
+                            >
+                              <Text
+                                style={[styles.chipText, selected && styles.chipTextSelected]}
+                              >
+                                {m.profile.display_name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })
                       )}
                     </View>
+
 
                     <TextInput
                       style={styles.input}

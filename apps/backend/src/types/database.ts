@@ -554,3 +554,4 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
     can_manage_hub: false,
   },
 };
+//

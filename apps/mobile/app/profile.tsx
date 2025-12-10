@@ -144,6 +144,12 @@ const Profile = () => {
               <Text style={styles.statNumber}>42</Text>
               <Text style={styles.statLabel}>Tâches faites</Text>
             </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>
+                {user?.memberships?.length || 0}
+              </Text>
+              <Text style={styles.statLabel}>Groupes</Text>
+            </View>
           </View>
 
           {/* OPTIONS */}

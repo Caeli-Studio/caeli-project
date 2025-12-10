@@ -40,14 +40,9 @@ const Assignement = () => {
   const [loading, setLoading] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
 
-  // Tasks fetched from API
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
-
-  // Current selected group
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
-
-  // Members of group
   const [members, setMembers] = useState<any[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
@@ -58,26 +53,43 @@ const Assignement = () => {
   const [taskDate] = useState(
     dateSelected || new Date().toISOString().split('T')[0]
   );
+  const [rawTasks, setRawTasks] = useState<TaskWithDetails[]>([]);
 
-  // Load user's groups on mount
   useEffect(() => {
     loadGroups();
   }, []);
 
-  // Load tasks when group is selected
   useEffect(() => {
     if (selectedGroupId) {
-      loadTasks();
       loadMembers();
+      loadRawTasks();
     }
   }, [selectedGroupId]);
 
   useEffect(() => {
-    if (route.params?.page === 1) {
-      setActivePage(1);
-      scrollViewRef.current?.scrollTo({ x: width * 0.82, animated: true });
+    if (members.length === 0 || rawTasks.length === 0) return;
+
+    const myMembership = members.find(
+      (m) => m.user?.id === apiService.userId
+    );
+
+    if (!myMembership) {
+      setTasks([]);
+      return;
     }
-  }, [route.params]);
+
+    console.log("My membership ID:", myMembership.id);
+
+    const mine = rawTasks.filter((task) =>
+      task.assignments?.some(
+        (a) => a.membership_id === myMembership.id
+      )
+    );
+
+    setTasks(mine);
+  }, [members, rawTasks]);
+
+
 
   const loadGroups = async () => {
     try {
@@ -105,24 +117,21 @@ const Assignement = () => {
     }
   };
 
-  const loadTasks = async () => {
+  const loadRawTasks = async () => {
     if (!selectedGroupId) return;
 
-    setLoadingTasks(true);
     try {
       const response = await taskService.getTasks(selectedGroupId, {
-        status: 'open',
+        status: "open",
         limit: 50,
       });
 
       if (response.success) {
-        setTasks(response.tasks);
+        setRawTasks(response.tasks);
       }
     } catch (error) {
-      console.error('Failed to load tasks:', error);
-      Alert.alert('Erreur', 'Impossible de charger les tâches');
-    } finally {
-      setLoadingTasks(false);
+      console.error(error);
+      Alert.alert("Erreur", "Impossible de charger les tâches");
     }
   };
 
@@ -173,7 +182,7 @@ const Assignement = () => {
         title: taskName.trim(),
         description: taskDescription.trim() || undefined,
         due_at: dueDate,
-        assigned_membership_ids: selectedMembers, // 👈 NEW FIELD
+        assigned_membership_ids: selectedMembers,
       });
 
       if (response.success) {
@@ -183,7 +192,8 @@ const Assignement = () => {
         setTaskDescription('');
         setSelectedMembers([]);
 
-        await loadTasks();
+        await loadMembers();
+        await loadRawTasks();
 
         setActivePage(0);
         scrollViewRef.current?.scrollTo({ x: 0, animated: true });
@@ -319,39 +329,38 @@ const Assignement = () => {
       alignSelf: 'flex-start',
     },
 
-    membersList: {
-      width: '100%',
+    chipContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      rowGap: 10,
+      columnGap: 10,
       marginBottom: 10,
+      width: '100%',
+    },
+
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
       backgroundColor: theme.colors.card,
-      borderRadius: 8,
-      padding: 10,
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
 
-    memberItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-    },
-
-    checkbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 4,
-      borderWidth: 2,
-      borderColor: theme.colors.border,
-      marginRight: 10,
-    },
-
-    checkboxChecked: {
+    chipSelected: {
       backgroundColor: theme.colors.primary,
       borderColor: theme.colors.primary,
     },
 
-    memberName: {
-      fontSize: 15,
+    chipText: {
       color: theme.colors.text,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+
+    chipTextSelected: {
+      color: '#fff',
+      fontWeight: '600',
     },
 
     buttonAdd: {
@@ -429,41 +438,6 @@ const Assignement = () => {
       color: theme.colors.textSecondary,
       marginTop: 4,
     },
-
-    chipContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      rowGap: 10,
-      columnGap: 10,
-      marginBottom: 10,
-      width: '100%',
-    },
-
-    chip: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 20,
-      backgroundColor: theme.colors.card,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-
-    chipSelected: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    },
-
-    chipText: {
-      color: theme.colors.text,
-      fontSize: 14,
-      fontWeight: '500',
-    },
-
-    chipTextSelected: {
-      color: '#fff',
-      fontWeight: '600',
-    },
-
   });
 
   return (
@@ -592,7 +566,9 @@ const Assignement = () => {
 
                     <View style={styles.chipContainer}>
                       {members.length === 0 ? (
-                        <Text style={styles.noteText}>Aucun membre dans ce foyer.</Text>
+                        <Text style={styles.noteText}>
+                          Aucun membre dans ce foyer.
+                        </Text>
                       ) : (
                         members.map((m) => {
                           const selected = selectedMembers.includes(m.id);
@@ -600,11 +576,17 @@ const Assignement = () => {
                           return (
                             <TouchableOpacity
                               key={m.id}
-                              style={[styles.chip, selected && styles.chipSelected]}
+                              style={[
+                                styles.chip,
+                                selected && styles.chipSelected,
+                              ]}
                               onPress={() => toggleMember(m.id)}
                             >
                               <Text
-                                style={[styles.chipText, selected && styles.chipTextSelected]}
+                                style={[
+                                  styles.chipText,
+                                  selected && styles.chipTextSelected,
+                                ]}
                               >
                                 {m.profile.display_name}
                               </Text>
@@ -614,12 +596,7 @@ const Assignement = () => {
                       )}
                     </View>
 
-
-                    <TextInput
-                      style={styles.input}
-                      value={taskDate}
-                      editable={false}
-                    />
+                    <TextInput style={styles.input} value={taskDate} editable={false} />
 
                     <TouchableOpacity
                       style={styles.buttonAdd}

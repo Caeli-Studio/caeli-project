@@ -134,7 +134,7 @@ const Profile = () => {
                 <MaterialIcons name="person" size={60} color={theme.colors.surface} />
               )}
             </View>
-            <Text style={styles.userName}>{user?.display_name || 'User'}</Text>
+            <Text style={styles.userName}>@{user?.pseudo || 'User'}</Text>
             <Text style={styles.userRole}>{user?.email || ''}</Text>
           </View>
 

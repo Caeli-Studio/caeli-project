@@ -22,7 +22,7 @@ export default function EditProfileScreen() {
   const { theme } = useTheme();
   const { user, setUser } = useAuth();
 
-  const [name, setName] = useState(user?.display_name || "");
+  const [name, setName] = useState(user?.pseudo || "");
   const [avatar, setAvatar] = useState(user?.avatar_url || null);
 
   // ---------------------------------------------------------------------
@@ -90,8 +90,8 @@ export default function EditProfileScreen() {
       }
 
       // Si le nom a changé → update via backend
-      if (name !== user?.display_name) {
-        const res = await updateMyProfile({ display_name: name });
+      if (name !== user?.pseudo) {
+        const res = await updateMyProfile({ pseudo: name });
         updatedProfile = res.profile;
       }
 

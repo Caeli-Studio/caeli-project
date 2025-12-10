@@ -1,5 +1,4 @@
 import { hashPin, isValidPseudo } from '../utils/helpers';
-
 import type {
   CreateProfileRequest,
   ProfileResponse,
@@ -7,9 +6,6 @@ import type {
 } from '../types/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-/**
- * Get current user's profile
- */
 export async function getMyProfile(
   request: FastifyRequest,
   reply: FastifyReply
@@ -31,15 +27,12 @@ export async function getMyProfile(
       });
     }
 
-    // Get user's group memberships
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
-      .select(
-        `
+      .select(`
         *,
         group:groups(*)
-      `
-      )
+      `)
       .eq('user_id', request.user.sub)
       .is('left_at', null);
 
@@ -50,7 +43,10 @@ export async function getMyProfile(
 
     return reply.send({
       success: true,
-      profile: response,
+      profile: {
+        ...response,
+        email: request.user.email,
+      },
     });
   } catch (err) {
     request.log.error(err, 'Error in getMyProfile');
@@ -62,9 +58,6 @@ export async function getMyProfile(
   }
 }
 
-/**
- * Update current user's profile
- */
 export async function updateMyProfile(
   request: FastifyRequest<{ Body: UpdateProfileRequest }>,
   reply: FastifyReply
@@ -111,7 +104,6 @@ export async function updateMyProfile(
     if (error) {
       request.log.error(error, 'Failed to update profile');
 
-      // Handle unique constraint violation
       if (error.code === '23505' && error.message.includes('pseudo')) {
         return reply.status(400).send({
           success: false,
@@ -127,9 +119,22 @@ export async function updateMyProfile(
       });
     }
 
+    const { data: memberships } = await request.supabaseClient
+      .from('memberships')
+      .select(`
+        *,
+        group:groups(*)
+      `)
+      .eq('user_id', request.user.sub)
+      .is('left_at', null);
+
     return reply.send({
       success: true,
-      profile,
+      profile: {
+        ...profile,
+        memberships: memberships || [],
+        email: request.user.email,
+      },
     });
   } catch (err) {
     request.log.error(err, 'Error in updateMyProfile');
@@ -141,9 +146,6 @@ export async function updateMyProfile(
   }
 }
 
-/**
- * Get a specific user's profile (public info only)
- */
 export async function getUserProfile(
   request: FastifyRequest<{ Params: { user_id: string } }>,
   reply: FastifyReply
@@ -178,9 +180,6 @@ export async function getUserProfile(
   }
 }
 
-/**
- * Create profile after sign up (called automatically via trigger or manually)
- */
 export async function createProfile(
   request: FastifyRequest<{ Body: CreateProfileRequest }>,
   reply: FastifyReply
@@ -201,7 +200,6 @@ export async function createProfile(
       });
     }
 
-    // Validate pseudo if provided
     if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
       return reply.status(400).send({
         success: false,
@@ -225,7 +223,6 @@ export async function createProfile(
     if (error) {
       request.log.error(error, 'Failed to create profile');
 
-      // Handle unique constraint violation
       if (error.code === '23505' && error.message.includes('pseudo')) {
         return reply.status(400).send({
           success: false,
@@ -264,18 +261,15 @@ export async function uploadAvatar(request, reply) {
     if (!file) {
       return reply.status(400).send({
         success: false,
-        error: "No file provided",
+        error: 'No file provided',
       });
     }
 
     const fileBuffer = await file.toBuffer();
-
-    // Nom du fichier : avatars/{userId}.jpg
     const filename = `avatars/${request.user.sub}-${Date.now()}.jpg`;
 
-    // Upload dans Supabase Storage
-    const { data, error: uploadError } = await request.supabaseClient.storage
-      .from("avatars")
+    const { error: uploadError } = await request.supabaseClient.storage
+      .from('avatars')
       .upload(filename, fileBuffer, {
         contentType: file.mimetype,
         upsert: true,
@@ -285,45 +279,53 @@ export async function uploadAvatar(request, reply) {
       console.error(uploadError);
       return reply.status(500).send({
         success: false,
-        error: "Failed to upload avatar",
+        error: 'Failed to upload avatar',
       });
     }
 
-    // Récupérer l’URL publique
     const { data: publicUrlData } = request.supabaseClient.storage
-      .from("avatars")
+      .from('avatars')
       .getPublicUrl(filename);
 
     const avatar_url = publicUrlData.publicUrl;
 
-    // Update profile DB
-    const { data: profile, error: updateError } =
-      await request.supabaseClient
-        .from("profiles")
-        .update({ avatar_url })
-        .eq("user_id", request.user.sub)
-        .select()
-        .single();
+    const { data: profile, error: updateError } = await request.supabaseClient
+      .from('profiles')
+      .update({ avatar_url })
+      .eq('user_id', request.user.sub)
+      .select()
+      .single();
 
     if (updateError) {
       console.error(updateError);
       return reply.status(500).send({
         success: false,
-        error: "Failed to update avatar URL",
+        error: 'Failed to update avatar URL',
       });
     }
 
+    const { data: memberships } = await request.supabaseClient
+      .from('memberships')
+      .select(`
+        *,
+        group:groups(*)
+      `)
+      .eq('user_id', request.user.sub)
+      .is('left_at', null);
+
     return reply.send({
       success: true,
-      profile,
+      profile: {
+        ...profile,
+        memberships: memberships || [],
+        email: request.user.email,
+      },
     });
-
   } catch (err) {
-    console.error("Error in uploadAvatar:", err);
+    console.error('Error in uploadAvatar:', err);
     return reply.status(500).send({
       success: false,
-      error: "Internal server error",
+      error: 'Internal server error',
     });
   }
 }
-

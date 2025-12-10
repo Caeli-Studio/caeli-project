@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider as CaeliThemeProvider } from '@/contexts/ThemeContext';
 import { NAV_THEME } from '@/lib/theme';
 
@@ -22,9 +23,11 @@ export default function RootLayout() {
     <CaeliThemeProvider>
       <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
         <AuthProvider>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <Stack />
-          <PortalHost />
+          <NotificationProvider>
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <Stack />
+            <PortalHost />
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </CaeliThemeProvider>

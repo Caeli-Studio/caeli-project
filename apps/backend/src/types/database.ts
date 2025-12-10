@@ -38,6 +38,7 @@ export interface Profile {
   avatar_url?: string;
   pin_hash?: string;
   locale: Locale;
+  push_tokens?: string[];
   created_at: string;
   updated_at: string;
 }

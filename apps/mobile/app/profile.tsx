@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   View,
@@ -212,7 +213,7 @@ const Profile = () => {
 
             <TouchableOpacity
               style={styles.optionButton}
-              onPress={() => Alert.alert('Notifications')}
+              onPress={() => router.push('/notification-settings')}
             >
               <MaterialIcons
                 name="notifications"

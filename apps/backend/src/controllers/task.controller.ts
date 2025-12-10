@@ -45,8 +45,8 @@ export async function createTask(
     }
 
     // Assign to members if specified
-    if (request.body.assigned_to && request.body.assigned_to.length > 0) {
-      const assignments = request.body.assigned_to.map((membership_id) => ({
+    if (request.body.assigned_membership_ids && request.body.assigned_membership_ids.length > 0) {
+      const assignments = request.body.assigned_membership_ids.map((membership_id) => ({
         task_id: task.id,
         membership_id,
       }));
@@ -60,7 +60,7 @@ export async function createTask(
       }
 
       // Send notifications
-      for (const membership_id of request.body.assigned_to) {
+      for (const membership_id of request.body.assigned_membership_ids) {
         await request.supabaseClient.from('notifications').insert({
           membership_id,
           type: 'task_assigned',

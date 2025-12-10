@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -20,7 +21,9 @@ import type { TaskWithDetails, TaskStatus } from '@/types/task';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { storage } from '@/lib/storage';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
 
@@ -29,6 +32,7 @@ type FilterType = 'all' | 'mine' | 'open' | 'done';
 const Home: React.FC = () => {
   const { user, signOut } = useAuth();
   const { theme } = useTheme();
+  const { initializeNotifications, isInitialized } = useNotifications();
   const router = useRouter();
 
   // State
@@ -66,6 +70,24 @@ const Home: React.FC = () => {
         const firstGroup = groupsResponse.data[0];
         setSelectedGroupId(firstGroup.group.id);
         setMyMembershipId(firstGroup.membership.id);
+
+        // Initialize notifications if not already initialized
+        if (!isInitialized) {
+          const accessToken = await storage.getAccessToken();
+          if (accessToken) {
+            // 🔧 TEMP FIX: Clear old notification preferences to use defaults (enabled: true)
+            await AsyncStorage.removeItem('@notification_preferences');
+            console.log(
+              '🔄 Cleared old notification preferences, using defaults'
+            );
+
+            await initializeNotifications(
+              firstGroup.membership.id,
+              accessToken
+            );
+            console.log('✅ Notifications initialized from home.tsx');
+          }
+        }
 
         // Load tasks for this group
         await loadTasks(firstGroup.group.id);

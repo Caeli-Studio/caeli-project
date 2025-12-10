@@ -60,6 +60,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "83849819-39e6-49fe-953d-19d3ec6926bd"
+      }
+    },
+    "owner": "noah_rogier"
   }
 }

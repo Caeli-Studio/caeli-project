@@ -527,12 +527,139 @@ export async function completeTask(
 
     const allCompleted = assignments?.every((a) => a.completed_at !== null);
 
+    request.log.info(
+      {
+        task_id: request.params.task_id,
+        assignmentsCount: assignments?.length || 0,
+        allCompleted,
+      },
+      '📊 Task completion status'
+    );
+
     // If all completed, mark task as done
     if (allCompleted) {
+      request.log.info(
+        '✅ All assignments completed, sending notifications...'
+      );
       await request.supabaseClient
         .from('tasks')
         .update({ status: 'done' })
         .eq('id', request.params.task_id);
+
+      // Send task_completed notifications to all assigned members
+      // Get task details and assignments with user profiles
+      const { data: task } = await request.supabaseClient
+        .from('tasks')
+        .select('id, title')
+        .eq('id', request.params.task_id)
+        .single();
+
+      const { data: taskAssignments } = await request.supabaseClient
+        .from('task_assignments')
+        .select('membership_id, memberships(user_id, profiles(push_tokens))')
+        .eq('task_id', request.params.task_id);
+
+      if (task) {
+        // Import push notification service
+        const { sendPushNotifications } = await import(
+          '../services/push-notification.service.js'
+        );
+
+        // If task has assignments, notify assigned members
+        if (taskAssignments && taskAssignments.length > 0) {
+          request.log.info(
+            `Sending notifications to ${taskAssignments.length} assigned members`
+          );
+
+          for (const assignment of taskAssignments) {
+            // Create database notification
+            await request.supabaseClient.from('notifications').insert({
+              membership_id: assignment.membership_id,
+              type: 'task_completed',
+              data: {
+                task_id: request.params.task_id,
+                task_title: task.title,
+                completed_by: membershipId,
+              },
+            });
+
+            // Send push notification if user has tokens
+            const membershipData = assignment.memberships as any;
+            const profileData = Array.isArray(membershipData?.profiles)
+              ? membershipData.profiles[0]
+              : membershipData?.profiles;
+            const pushTokens = (profileData?.push_tokens as string[]) || [];
+
+            if (pushTokens.length > 0) {
+              await sendPushNotifications(pushTokens, {
+                title: 'Tâche terminée',
+                body: `${task.title} a été complétée`,
+                data: {
+                  type: 'task_completed',
+                  task_id: request.params.task_id,
+                },
+              });
+            }
+          }
+        } else {
+          // If task has NO assignments, notify all group members (except completer)
+          request.log.info(
+            'Task has no assignments, notifying all group members'
+          );
+
+          // Get task's group_id
+          const { data: taskDetails } = await request.supabaseClient
+            .from('tasks')
+            .select('group_id')
+            .eq('id', request.params.task_id)
+            .single();
+
+          if (taskDetails) {
+            // Get all members of the group except the one who completed
+            const { data: groupMembers } = await request.supabaseClient
+              .from('memberships')
+              .select('id, user_id, profiles(push_tokens)')
+              .eq('group_id', taskDetails.group_id)
+              .neq('id', membershipId);
+
+            if (groupMembers) {
+              request.log.info(
+                `Sending notifications to ${groupMembers.length} group members`
+              );
+
+              for (const member of groupMembers) {
+                // Create database notification
+                await request.supabaseClient.from('notifications').insert({
+                  membership_id: member.id,
+                  type: 'task_completed',
+                  data: {
+                    task_id: request.params.task_id,
+                    task_title: task.title,
+                    completed_by: membershipId,
+                  },
+                });
+
+                // Send push notification if user has tokens
+                const profileData = Array.isArray(member.profiles)
+                  ? member.profiles[0]
+                  : member.profiles;
+                const pushTokens = (profileData?.push_tokens as string[]) || [];
+
+                if (pushTokens.length > 0) {
+                  await sendPushNotifications(pushTokens, {
+                    title: 'Tâche terminée',
+                    body: `${task.title} a été complétée`,
+                    data: {
+                      type: 'task_completed',
+                      task_id: request.params.task_id,
+                    },
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     return reply.send({

@@ -38,7 +38,7 @@ const Assignement = () => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [loadingTasks] = useState(false);
 
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -69,27 +69,21 @@ const Assignement = () => {
   useEffect(() => {
     if (members.length === 0 || rawTasks.length === 0) return;
 
-    const myMembership = members.find(
-      (m) => m.user?.id === apiService.userId
-    );
+    const myMembership = members.find((m) => m.user?.id === apiService.userId);
 
     if (!myMembership) {
       setTasks([]);
       return;
     }
 
-    console.log("My membership ID:", myMembership.id);
+    console.log('My membership ID:', myMembership.id);
 
     const mine = rawTasks.filter((task) =>
-      task.assignments?.some(
-        (a) => a.membership_id === myMembership.id
-      )
+      task.assignments?.some((a) => a.membership_id === myMembership.id)
     );
 
     setTasks(mine);
   }, [members, rawTasks]);
-
-
 
   const loadGroups = async () => {
     try {
@@ -108,7 +102,9 @@ const Assignement = () => {
     if (!selectedGroupId) return;
 
     try {
-      const res = await apiService.get(`/api/groups/${selectedGroupId}/members`);
+      const res = await apiService.get(
+        `/api/groups/${selectedGroupId}/members`
+      );
       if (res.success && res.members) {
         setMembers(res.members);
       }
@@ -122,7 +118,7 @@ const Assignement = () => {
 
     try {
       const response = await taskService.getTasks(selectedGroupId, {
-        status: "open",
+        status: 'open',
         limit: 50,
       });
 
@@ -131,7 +127,7 @@ const Assignement = () => {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Erreur", "Impossible de charger les tâches");
+      Alert.alert('Erreur', 'Impossible de charger les tâches');
     }
   };
 
@@ -596,7 +592,11 @@ const Assignement = () => {
                       )}
                     </View>
 
-                    <TextInput style={styles.input} value={taskDate} editable={false} />
+                    <TextInput
+                      style={styles.input}
+                      value={taskDate}
+                      editable={false}
+                    />
 
                     <TouchableOpacity
                       style={styles.buttonAdd}

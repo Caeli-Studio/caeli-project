@@ -1,6 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -17,13 +16,10 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
-import { useRouter } from 'expo-router';
-
 const Profile = () => {
   const { user, signOut } = useAuth();
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
   const router = useRouter();
-
 
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
@@ -131,7 +127,11 @@ const Profile = () => {
               {user?.avatar_url ? (
                 <Image source={{ uri: user.avatar_url }} style={styles.image} />
               ) : (
-                <MaterialIcons name="person" size={60} color={theme.colors.surface} />
+                <MaterialIcons
+                  name="person"
+                  size={60}
+                  color={theme.colors.surface}
+                />
               )}
             </View>
             <Text style={styles.userName}>@{user?.pseudo || 'User'}</Text>
@@ -154,9 +154,9 @@ const Profile = () => {
 
           {/* OPTIONS */}
           <View style={styles.optionsContainer}>
-            <TouchableOpacity 
-            style={styles.optionButton}
-            onPress={() => router.push("/edit-profile")}
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={() => router.push('/edit-profile')}
             >
               <MaterialIcons name="edit" size={24} color={theme.colors.text} />
               <Text style={styles.optionText}>Modifier le profil</Text>

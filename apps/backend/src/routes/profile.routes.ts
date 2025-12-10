@@ -69,10 +69,8 @@ export default async function profileRoutes(fastify: FastifyInstance) {
 
   fastify.put('/me/avatar', {
     onRequest: [verifyJWT],
-    consumes: ['multipart/form-data'],
     handler: uploadAvatar,
   });
-
 
   fastify.post('/', {
     onRequest: [verifyJWT],

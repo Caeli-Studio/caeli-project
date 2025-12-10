@@ -1,4 +1,5 @@
 import { hashPin, isValidPseudo } from '../utils/helpers';
+
 import type {
   CreateProfileRequest,
   ProfileResponse,
@@ -29,10 +30,12 @@ export async function getMyProfile(
 
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
-      .select(`
+      .select(
+        `
         *,
         group:groups(*)
-      `)
+      `
+      )
       .eq('user_id', request.user.sub)
       .is('left_at', null);
 
@@ -121,10 +124,12 @@ export async function updateMyProfile(
 
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
-      .select(`
+      .select(
+        `
         *,
         group:groups(*)
-      `)
+      `
+      )
       .eq('user_id', request.user.sub)
       .is('left_at', null);
 
@@ -252,7 +257,10 @@ export async function createProfile(
   }
 }
 
-export async function uploadAvatar(request, reply) {
+export async function uploadAvatar(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
   try {
     await request.jwtVerify();
 
@@ -306,10 +314,12 @@ export async function uploadAvatar(request, reply) {
 
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
-      .select(`
+      .select(
+        `
         *,
         group:groups(*)
-      `)
+      `
+      )
       .eq('user_id', request.user.sub)
       .is('left_at', null);
 

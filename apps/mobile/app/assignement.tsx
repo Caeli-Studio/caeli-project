@@ -18,6 +18,7 @@ import type { GetGroupsResponse } from '@/types/group';
 import type { TaskWithDetails } from '@/types/task';
 
 import Navbar from '@/components/navbar';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
@@ -39,7 +40,7 @@ const Assignement = () => {
   const [taskDescription, setTaskDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingTasks] = useState(false);
-
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
@@ -69,7 +70,7 @@ const Assignement = () => {
   useEffect(() => {
     if (members.length === 0 || rawTasks.length === 0) return;
 
-    const myMembership = members.find((m) => m.user?.id === apiService.userId);
+    const myMembership = members.find((m) => m.user?.id === user?.id);
 
     if (!myMembership) {
       setTasks([]);
@@ -102,9 +103,15 @@ const Assignement = () => {
     if (!selectedGroupId) return;
 
     try {
-      const res = await apiService.get(
+      type MembersResponse = {
+        success: boolean;
+        members: any[];
+      };
+
+      const res = await apiService.get<MembersResponse>(
         `/api/groups/${selectedGroupId}/members`
       );
+
       if (res.success && res.members) {
         setMembers(res.members);
       }

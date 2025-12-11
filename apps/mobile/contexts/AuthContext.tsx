@@ -1,9 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-import type { User, AuthResponse } from "@/types/auth";
+import type { User, AuthResponse } from '@/types/auth';
 
-import { authService } from "@/services/auth.service";
-import { apiService } from "@/services/api.service"; // ✅ IMPORTANT
+import { apiService } from '@/services/api.service';
+import { authService } from '@/services/auth.service';
+
+type ProfileResponse = {
+  success: boolean;
+  profile?: User;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -54,20 +59,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 2️⃣ Load Supabase profile (SOURCE OF TRUTH)
       try {
-        const profileRes = await apiService.get("/api/profile/me");
+        const profileRes =
+          await apiService.get<ProfileResponse>('/api/profile/me');
 
         if (profileRes?.profile) {
           setUser(profileRes.profile);
           return; // ✔ Critical: do not overwrite afterward
         }
       } catch (err) {
-        console.log("❌ Impossible de charger le profil Supabase:", err);
+        console.log('❌ Impossible de charger le profil Supabase:', err);
       }
 
       // 3️⃣ Fallback if profile missing
       setUser(sessionResult.user);
     } catch (error) {
-      console.error("Error initializing auth:", error);
+      console.error('Error initializing auth:', error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -87,7 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success) {
         // Try to load profile RIGHT AFTER LOGIN
         try {
-          const profileRes = await apiService.get("/profile/me");
+          const profileRes =
+            await apiService.get<ProfileResponse>('/api/profile/me');
 
           if (profileRes?.profile) {
             setUser(profileRes.profile);
@@ -95,22 +102,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return result;
           }
         } catch (err) {
-          console.log("❌ Impossible de charger le profil Supabase:", err);
+          console.log('❌ Impossible de charger le profil Supabase:', err);
         }
 
         // Fallback: use auth user if profile missing
         if (result.user) {
-          setUser(result.user);
+          setUser(result.user ?? null);
           setIsAuthenticated(true);
         }
       }
 
       return result;
     } catch (error) {
-      console.error("Error signing in:", error);
+      console.error('Error signing in:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     } finally {
       setIsLoading(false);
@@ -127,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
     } finally {
       setIsLoading(false);
     }
@@ -143,25 +150,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success) {
         // Reload Supabase profile
         try {
-          const profileRes = await apiService.get("/profile/me");
+          const profileRes =
+            await apiService.get<ProfileResponse>('/api/profile/me');
           if (profileRes?.profile) {
             setUser(profileRes.profile);
             setIsAuthenticated(true);
             return;
           }
         } catch (err) {
-          console.log("❌ Impossible de rafraîchir le profil:", err);
+          console.log('❌ Impossible de rafraîchir le profil:', err);
         }
 
         // fallback
-        setUser(result.user);
+        setUser(result.user ?? null);
         setIsAuthenticated(true);
       } else {
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error("Error refreshing session:", error);
+      console.error('Error refreshing session:', error);
       setUser(null);
       setIsAuthenticated(false);
     }
@@ -187,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

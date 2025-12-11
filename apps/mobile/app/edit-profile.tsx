@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,21 +10,26 @@ import {
   TextInput,
   Alert,
   ScrollView,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { MaterialIcons } from "@expo/vector-icons";
+} from 'react-native';
 
-import { useTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { updateMyProfile } from "@/services/profile.service";
-import { API_BASE_URL } from "@/lib/config";
-import { storage } from "@/lib/storage";
+import type { User } from '@/types/auth';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { API_BASE_URL } from '@/lib/config';
+import { storage } from '@/lib/storage';
+import { updateMyProfile } from '@/services/profile.service';
+
+type UpdateProfileResponse = {
+  success: boolean;
+  profile: User;
+};
 
 export default function EditProfileScreen() {
   const { theme } = useTheme();
   const { user, setUser } = useAuth();
 
-  const [name, setName] = useState(user?.pseudo || "");
+  const [name, setName] = useState(user?.pseudo || '');
   const [avatar, setAvatar] = useState(user?.avatar_url || null);
 
   // ---------------------------------------------------------------------
@@ -31,12 +38,12 @@ export default function EditProfileScreen() {
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission refusée", "Autorisez la galerie");
+      Alert.alert('Permission refusée', 'Autorisez la galerie');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
     });
@@ -52,16 +59,16 @@ export default function EditProfileScreen() {
   const uploadAvatar = async (uri: string) => {
     const formData = new FormData();
 
-    formData.append("file", {
+    formData.append('file', {
       uri,
-      type: "image/jpeg",
-      name: "avatar.jpg",
+      type: 'image/jpeg',
+      name: 'avatar.jpg',
     } as any);
 
     const token = await storage.getAccessToken();
 
     const response = await fetch(`${API_BASE_URL}/api/profile/me/avatar`, {
-      method: "PUT",
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -71,7 +78,7 @@ export default function EditProfileScreen() {
     const json = await response.json();
 
     if (!response.ok) {
-      throw new Error(json.error || "Avatar upload failed");
+      throw new Error(json.error || 'Avatar upload failed');
     }
 
     return json.profile; // renvoie le profil mis à jour
@@ -91,17 +98,19 @@ export default function EditProfileScreen() {
 
       // Si le nom a changé → update via backend
       if (name !== user?.pseudo) {
-        const res = await updateMyProfile({ pseudo: name });
+        const res = (await updateMyProfile({
+          pseudo: name,
+        })) as UpdateProfileResponse;
         updatedProfile = res.profile;
       }
 
       // MAJ du contexte utilisateur
       setUser(updatedProfile);
 
-      Alert.alert("Succès", "Profil mis à jour !");
+      Alert.alert('Succès', 'Profil mis à jour !');
     } catch (err) {
       console.log(err);
-      Alert.alert("Erreur", "Impossible de mettre à jour le profil");
+      Alert.alert('Erreur', 'Impossible de mettre à jour le profil');
     }
   };
 
@@ -120,7 +129,11 @@ export default function EditProfileScreen() {
         {avatar ? (
           <Image source={{ uri: avatar }} style={styles.avatar} />
         ) : (
-          <MaterialIcons name="person" size={80} color={theme.colors.textSecondary} />
+          <MaterialIcons
+            name="person"
+            size={80}
+            color={theme.colors.textSecondary}
+          />
         )}
       </TouchableOpacity>
 
@@ -162,18 +175,18 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   avatarContainer: {
-    alignSelf: "center",
+    alignSelf: 'center',
     width: 150,
     height: 150,
     borderRadius: 75,
-    overflow: "hidden",
-    backgroundColor: "#cccccc40",
-    justifyContent: "center",
-    alignItems: "center",
+    overflow: 'hidden',
+    backgroundColor: '#cccccc40',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatar: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
   inputBox: {
     marginTop: 30,
@@ -191,11 +204,11 @@ const styles = StyleSheet.create({
     marginTop: 40,
     paddingVertical: 15,
     borderRadius: 12,
-    alignItems: "center",
+    alignItems: 'center',
   },
   saveText: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
+    fontWeight: '700',
+    color: '#fff',
   },
 });

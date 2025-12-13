@@ -15,12 +15,14 @@ import Navbar from '@/components/navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useEffect, useState } from 'react';
+import { profileService } from '@/services/profile.service';
 
 const Profile = () => {
   const { user, signOut } = useAuth();
   const { isDark, themeMode, setThemeMode, theme } = useTheme();
   const router = useRouter();
-
+  const [completedTasks, setCompletedTasks] = useState<number>(0);
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
       { text: 'Annuler', style: 'cancel' },
@@ -33,6 +35,21 @@ const Profile = () => {
       },
     ]);
   };
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const res = await profileService.getMyStats();
+        if (res.success) {
+          setCompletedTasks(res.completed_tasks);
+        }
+      } catch (err) {
+        console.error('Failed to load profile stats', err);
+      }
+    };
+
+    loadStats();
+  }, []);
 
   // Dynamic styles based on theme
   const styles = StyleSheet.create({
@@ -141,7 +158,7 @@ const Profile = () => {
           {/* STATS */}
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>42</Text>
+              <Text style={styles.statNumber}>{completedTasks}</Text>
               <Text style={styles.statLabel}>Tâches faites</Text>
             </View>
             <View style={styles.statCard}>

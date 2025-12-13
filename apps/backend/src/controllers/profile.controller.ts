@@ -339,3 +339,62 @@ export async function uploadAvatar(
     });
   }
 }
+
+export async function getMyTaskStats(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    await request.jwtVerify();
+
+    // 1️⃣ récupérer toutes les memberships actives du user
+    const { data: memberships, error: membershipError } =
+      await request.supabaseClient
+        .from('memberships')
+        .select('id')
+        .eq('user_id', request.user.sub)
+        .is('left_at', null);
+
+    if (membershipError) {
+      return reply.status(400).send({
+        success: false,
+        error: membershipError.message,
+      });
+    }
+
+    if (!memberships || memberships.length === 0) {
+      return reply.send({
+        success: true,
+        completed_tasks: 0,
+      });
+    }
+
+    const membershipIds = memberships.map((m) => m.id);
+
+    // 2️⃣ compter les tâches complétées
+    const { count, error } = await request.supabaseClient
+      .from('task_assignments')
+      .select('*', { count: 'exact', head: true })
+      .in('membership_id', membershipIds)
+      .not('completed_at', 'is', null);
+
+    if (error) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    return reply.send({
+      success: true,
+      completed_tasks: count ?? 0,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in getMyTaskStats');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+

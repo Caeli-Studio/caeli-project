@@ -229,6 +229,15 @@ const Home: React.FC = () => {
   const toggleTaskComplete = async (task: TaskWithDetails) => {
     if (!selectedGroupId) return;
 
+    // ⛔ PROTECTION FRONTEND
+    if (!task.can_complete) {
+      Alert.alert(
+        'Action impossible',
+        "Cette tâche est assignée à quelqu’un d’autre"
+      );
+      return;
+    }
+
     try {
       if (task.status === 'done') {
         Alert.alert('Info', 'Cette tâche est déjà terminée');
@@ -238,7 +247,6 @@ const Home: React.FC = () => {
       const response = await taskService.completeTask(selectedGroupId, task.id);
 
       if (response.success) {
-        // Reload tasks
         await loadTasks(selectedGroupId);
         Alert.alert('Succès', 'Tâche marquée comme terminée !');
       }
@@ -251,6 +259,7 @@ const Home: React.FC = () => {
       Alert.alert('Erreur', errorMessage);
     }
   };
+
 
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [

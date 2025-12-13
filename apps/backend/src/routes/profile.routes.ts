@@ -3,9 +3,11 @@ import {
   getMyProfile,
   getUserProfile,
   updateMyProfile,
-  uploadAvatar, // 👈 AJOUT
+  uploadAvatar,
+  getMyTaskStats
 } from '../controllers/profile.controller';
 import { verifyJWT } from '../utils/auth';
+import { loadMembership } from '../middleware/permissions';
 import { customLogger } from '../utils/logger';
 
 import type { FastifyInstance } from 'fastify';
@@ -135,10 +137,16 @@ export default async function profileRoutes(fastify: FastifyInstance) {
     handler: getUserProfile,
   });
 
+  fastify.get('/me/stats', {
+    onRequest: [verifyJWT],
+    handler: getMyTaskStats,
+  });
+
   // Logs
   customLogger.route('GET', '/api/profile/me');
   customLogger.route('PUT', '/api/profile/me');
   customLogger.route('PUT', '/api/profile/me/avatar'); // 👈 AJOUT
   customLogger.route('POST', '/api/profile');
   customLogger.route('GET', '/api/profile/:user_id');
+  customLogger.route('GET', '/api/profile/me/stats');
 }

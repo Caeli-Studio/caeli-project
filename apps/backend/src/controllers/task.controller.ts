@@ -357,7 +357,11 @@ export async function updateTask(
         due_at: request.body.due_at,
         required_count: request.body.required_count,
         is_free: request.body.is_free,
-        status: request.body.status,
+        status:
+          request.body.status === 'done'
+            ? undefined
+            : request.body.status,
+
       })
       .eq('id', request.params.task_id)
       .eq('group_id', request.params.group_id)
@@ -493,46 +497,46 @@ export async function assignTask(
 export async function completeTask(
   request: FastifyRequest<{
     Params: { group_id: string; task_id: string };
-    Body?: CompleteTaskRequest;
   }>,
   reply: FastifyReply
 ) {
   try {
-    const membershipId = request.body?.membership_id || request.membership?.id;
+    const membershipId = request.membership?.id;
 
     if (!membershipId) {
       return reply.status(400).send({
         success: false,
-        error: 'Membership ID is required',
+        error: 'Membership ID missing',
       });
     }
 
-    // Mark assignment as completed
-    const { error: assignmentError } = await request.supabaseClient
+    // ✅ UPDATE sans filtre dangereux
+    const { data, error } = await request.supabaseClient
       .from('task_assignments')
       .update({ completed_at: new Date().toISOString() })
       .eq('task_id', request.params.task_id)
       .eq('membership_id', membershipId)
-      .is('completed_at', null);
+      .select();
 
-    if (assignmentError) {
-      request.log.error(assignmentError, 'Failed to complete task assignment');
+    // ✅ Vérification CRITIQUE
+    if (error || !data || data.length === 0) {
+      request.log.error({ error, membershipId }, 'No assignment updated');
       return reply.status(400).send({
         success: false,
-        error: 'Failed to complete task',
-        message: assignmentError.message,
+        error: 'No assignment updated',
       });
     }
 
-    // Check if all assignments are completed
+    // 🔁 Vérifier si tout est complété
     const { data: assignments } = await request.supabaseClient
       .from('task_assignments')
       .select('completed_at')
       .eq('task_id', request.params.task_id);
 
-    const allCompleted = assignments?.every((a) => a.completed_at !== null);
+    const allCompleted =
+      assignments?.length > 0 &&
+      assignments.every((a) => a.completed_at !== null);
 
-    // If all completed, mark task as done
     if (allCompleted) {
       await request.supabaseClient
         .from('tasks')
@@ -542,7 +546,6 @@ export async function completeTask(
 
     return reply.send({
       success: true,
-      message: 'Task completed successfully',
       task_status: allCompleted ? 'done' : 'partially_completed',
     });
   } catch (err) {
@@ -550,10 +553,10 @@ export async function completeTask(
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 }
+
 
 /**
  * Take a free task

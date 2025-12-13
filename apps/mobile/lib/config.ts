@@ -21,7 +21,7 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '10.42.182.159';
+const LOCAL_IP_ADDRESS = '10.255.178.159';
 const BACKEND_PORT = '3000';
 
 /**

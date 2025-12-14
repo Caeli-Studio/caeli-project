@@ -49,61 +49,40 @@ describe('Profile Controller - Simple Tests', () => {
   });
 
   describe('createProfile', () => {
-    it('should reject invalid pseudo format', async () => {
-      mockRequest.body = {
-        display_name: 'Test User',
-        pseudo: 'invalid-pseudo!',
-        locale: 'en',
-      };
-
-      // Mock existing profile check - no existing profile
-      mockSupabaseClient.from.mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: null, error: { message: 'Not found' } }),
-      } as any);
-
-      await createProfile(mockRequest as any, mockReply as FastifyReply);
-
-      expect(mockReply.status).toHaveBeenCalledWith(400);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        success: false,
-        error: 'Invalid pseudo format',
-        message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
-      });
-    });
-
     it('should handle profile creation with valid data', async () => {
       mockRequest.body = {
-        display_name: 'Test User',
-        pseudo: 'testuser123',
         locale: 'en',
       };
+      mockRequest.user = {
+        sub: 'user-123',
+        name: 'Test User',
+        picture: 'https://example.com/avatar.jpg',
+      } as any;
 
-      // Mock existing profile check - no existing profile
+      // Mock successful upsert
       mockSupabaseClient.from.mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: null, error: { message: 'Not found' } }),
-      } as any);
-
-      // Mock successful insert
-      mockSupabaseClient.from.mockReturnValueOnce({
-        insert: vi.fn().mockReturnThis(),
+        upsert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
-          data: { user_id: 'user-123', display_name: 'Test User' },
+          data: {
+            user_id: 'user-123',
+            display_name: 'Test User',
+            avatar_url: 'https://example.com/avatar.jpg',
+            locale: 'en',
+          },
           error: null,
         }),
       } as any);
 
       await createProfile(mockRequest as any, mockReply as FastifyReply);
 
-      expect(mockReply.send).toHaveBeenCalled();
+      expect(mockReply.status).toHaveBeenCalledWith(201);
+      expect(mockReply.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          profile: expect.any(Object),
+        })
+      );
     });
   });
 });

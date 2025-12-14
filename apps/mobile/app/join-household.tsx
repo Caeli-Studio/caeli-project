@@ -70,8 +70,8 @@ export default function JoinHouseholdScreen() {
   };
 
   const handleManualSubmit = async () => {
-    if (!inviteCode || inviteCode.length !== 6) {
-      Alert.alert('Erreur', 'Veuillez entrer un code à 6 caractères.');
+    if (!inviteCode || inviteCode.length !== 8) {
+      Alert.alert('Erreur', 'Veuillez entrer un code à 8 caractères.');
       return;
     }
 
@@ -110,9 +110,13 @@ export default function JoinHouseholdScreen() {
       if (
         error?.response?.status === 400 &&
         (error?.response?.data?.error === 'Already a member' ||
+          error?.response?.data?.error === 'Failed to join group' ||
           error?.response?.data?.message
             ?.toLowerCase()
-            ?.includes('already a member'))
+            ?.includes('already a member') ||
+          error?.response?.data?.message
+            ?.toLowerCase()
+            ?.includes('duplicate key'))
       ) {
         Alert.alert(
           'Déjà membre',
@@ -121,6 +125,25 @@ export default function JoinHouseholdScreen() {
             {
               text: 'OK',
               onPress: () => router.push('/organisation'),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Check for invitation not found (404)
+      if (error?.response?.status === 404) {
+        Alert.alert(
+          'Invitation invalide',
+          "Ce code d'invitation n'existe pas ou a été révoqué. Veuillez demander un nouveau code.",
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setScannedInvitation(null);
+                setIsScanning(false);
+                setMode('choice');
+              },
             },
           ]
         );
@@ -172,7 +195,7 @@ export default function JoinHouseholdScreen() {
     }
 
     console.log('QR Code scanné:', data, 'Longueur:', data?.length);
-    if (data && data.length === 6) {
+    if (data && data.length === 8) {
       setIsScanning(true);
       console.log("Code valide, récupération des détails de l'invitation...");
 
@@ -207,7 +230,7 @@ export default function JoinHouseholdScreen() {
         setIsScanning(false);
       }
     } else {
-      console.log('Code invalide - longueur différente de 6 caractères');
+      console.log('Code invalide - longueur différente de 8 caractères');
     }
   };
 
@@ -454,7 +477,7 @@ export default function JoinHouseholdScreen() {
                   Entrer un code manuellement
                 </CardTitle>
                 <CardDescription style={{ color: theme.colors.textSecondary }}>
-                  Saisissez le code à 6 caractères que vous avez reçu
+                  Saisissez le code à 8 caractères que vous avez reçu
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -560,7 +583,7 @@ export default function JoinHouseholdScreen() {
                   Code d'invitation
                 </CardTitle>
                 <CardDescription style={{ color: theme.colors.textSecondary }}>
-                  Entrez le code à 6 caractères reçu
+                  Entrez le code à 8 caractères reçu
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -568,8 +591,8 @@ export default function JoinHouseholdScreen() {
                   style={styles.codeInput}
                   value={inviteCode}
                   onChangeText={(text) => setInviteCode(text.toUpperCase())}
-                  placeholder="ABC123"
-                  maxLength={6}
+                  placeholder="ABC12345"
+                  maxLength={8}
                   autoCapitalize="characters"
                   autoCorrect={false}
                 />

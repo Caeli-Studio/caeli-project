@@ -18,6 +18,7 @@ import type { GetGroupsResponse } from '@/types/group';
 import type { TaskWithDetails } from '@/types/task';
 
 import Navbar from '@/components/navbar';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
@@ -38,14 +39,13 @@ const Assignement = () => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-
-  // Tasks fetched from API
+  const [loadingTasks] = useState(false);
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
-
-  // Current selected group
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const route = useRoute<RouteProp<RouteParams, 'assignement'>>();
@@ -54,26 +54,37 @@ const Assignement = () => {
   const [taskDate] = useState(
     dateSelected || new Date().toISOString().split('T')[0]
   );
+  const [rawTasks, setRawTasks] = useState<TaskWithDetails[]>([]);
 
-  // Load user's groups on mount
   useEffect(() => {
     loadGroups();
   }, []);
 
-  // Load tasks when group is selected
   useEffect(() => {
     if (selectedGroupId) {
-      loadTasks();
+      loadMembers();
+      loadRawTasks();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroupId]);
 
   useEffect(() => {
-    if (route.params?.page === 1) {
-      setActivePage(1);
-      scrollViewRef.current?.scrollTo({ x: width * 0.82, animated: true });
+    if (members.length === 0 || rawTasks.length === 0) return;
+
+    const myMembership = members.find((m) => m.user?.id === user?.id);
+
+    if (!myMembership) {
+      setTasks([]);
+      return;
     }
-  }, [route.params]);
+
+    console.log('My membership ID:', myMembership.id);
+
+    const mine = rawTasks.filter((task) =>
+      task.assignments?.some((a) => a.membership_id === myMembership.id)
+    );
+
+    setTasks(mine);
+  }, [members, rawTasks]);
 
   const loadGroups = async () => {
     try {
@@ -88,10 +99,30 @@ const Assignement = () => {
     }
   };
 
-  const loadTasks = async () => {
+  const loadMembers = async () => {
     if (!selectedGroupId) return;
 
-    setLoadingTasks(true);
+    try {
+      type MembersResponse = {
+        success: boolean;
+        members: any[];
+      };
+
+      const res = await apiService.get<MembersResponse>(
+        `/api/groups/${selectedGroupId}/members`
+      );
+
+      if (res.success && res.members) {
+        setMembers(res.members);
+      }
+    } catch (error) {
+      console.error('Failed to load members:', error);
+    }
+  };
+
+  const loadRawTasks = async () => {
+    if (!selectedGroupId) return;
+
     try {
       const response = await taskService.getTasks(selectedGroupId, {
         status: 'open',
@@ -99,14 +130,20 @@ const Assignement = () => {
       });
 
       if (response.success) {
-        setTasks(response.tasks);
+        setRawTasks(response.tasks);
       }
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      console.error(error);
       Alert.alert('Erreur', 'Impossible de charger les tâches');
-    } finally {
-      setLoadingTasks(false);
     }
+  };
+
+  const toggleMember = (userId: string) => {
+    setSelectedMembers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const pages = [
@@ -148,6 +185,7 @@ const Assignement = () => {
         title: taskName.trim(),
         description: taskDescription.trim() || undefined,
         due_at: dueDate,
+        assigned_membership_ids: selectedMembers,
       });
 
       if (response.success) {
@@ -155,8 +193,10 @@ const Assignement = () => {
 
         setTaskName('');
         setTaskDescription('');
+        setSelectedMembers([]);
 
-        await loadTasks();
+        await loadMembers();
+        await loadRawTasks();
 
         setActivePage(0);
         scrollViewRef.current?.scrollTo({ x: 0, animated: true });
@@ -181,7 +221,7 @@ const Assignement = () => {
     });
   };
 
-  // Dynamic styles based on theme
+  // Styles
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
 
@@ -242,9 +282,8 @@ const Assignement = () => {
       borderRadius: 10,
       padding: 16,
       maxWidth: '90%',
-      height: 350,
+      maxHeight: '75%',
       alignItems: 'center',
-      justifyContent: 'center',
       shadowColor: theme.colors.shadow,
       shadowOpacity: 0.1,
       shadowRadius: 5,
@@ -253,9 +292,6 @@ const Assignement = () => {
 
     innerContent: {
       width: width * 0.82,
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
 
     pageTitle: {
@@ -273,13 +309,6 @@ const Assignement = () => {
       marginBottom: 12,
     },
 
-    noteText: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      marginBottom: 10,
-      fontStyle: 'italic',
-    },
-
     input: {
       width: '100%',
       borderWidth: 1,
@@ -291,6 +320,48 @@ const Assignement = () => {
       color: theme.colors.text,
     },
 
+    assignLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 5,
+      alignSelf: 'flex-start',
+    },
+
+    chipContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      rowGap: 10,
+      columnGap: 10,
+      marginBottom: 10,
+      width: '100%',
+    },
+
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+
+    chipSelected: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+
+    chipText: {
+      color: theme.colors.text,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+
+    chipTextSelected: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+
     buttonAdd: {
       backgroundColor: theme.colors.primary,
       paddingVertical: 10,
@@ -298,6 +369,14 @@ const Assignement = () => {
       borderRadius: 6,
       minWidth: 150,
       alignItems: 'center',
+      marginTop: 10,
+    },
+
+    noteText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginBottom: 10,
+      fontStyle: 'italic',
     },
 
     buttonText: {
@@ -401,7 +480,7 @@ const Assignement = () => {
         </View>
       )}
 
-      {/* Contenu centré */}
+      {/* CONTENT */}
       <View style={styles.centeredContent}>
         <View style={styles.card}>
           <ScrollView
@@ -415,8 +494,18 @@ const Assignement = () => {
               height: '100%',
             }}
           >
+            {/* PAGE 1 — LISTE DES TÂCHES */}
             {pages.map((page, index) => (
-              <View style={styles.innerContent} key={index}>
+              <ScrollView
+                key={index}
+                style={styles.innerContent}
+                contentContainerStyle={{
+                  alignItems: 'center',
+                  paddingBottom: 20,
+                }}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
                 {index === 0 ? (
                   loadingTasks ? (
                     <ActivityIndicator
@@ -428,10 +517,7 @@ const Assignement = () => {
                   ) : (
                     <>
                       <Text style={styles.pageTitle}>{page.text}</Text>
-                      <ScrollView
-                        style={{ width: '100%', maxHeight: 270 }}
-                        showsVerticalScrollIndicator={true}
-                      >
+                      <View style={{ width: '100%' }}>
                         {tasks.map((task) => (
                           <View key={task.id} style={styles.taskBox}>
                             <Text style={styles.taskTitle}>{task.title}</Text>
@@ -456,11 +542,11 @@ const Assignement = () => {
                             )}
                           </View>
                         ))}
-                      </ScrollView>
+                      </View>
                     </>
                   )
                 ) : (
-                  // Deuxième page : formulaire
+                  // PAGE 2 — CRÉATION DE TÂCHE
                   <>
                     <Text style={styles.message}>{page.text}</Text>
 
@@ -478,20 +564,48 @@ const Assignement = () => {
                       value={taskDescription}
                       onChangeText={setTaskDescription}
                       multiline
-                      numberOfLines={2}
                       editable={!loading}
                     />
 
+                    <Text style={styles.assignLabel}>Assigné à :</Text>
+
+                    <View style={styles.chipContainer}>
+                      {members.length === 0 ? (
+                        <Text style={styles.noteText}>
+                          Aucun membre dans ce foyer.
+                        </Text>
+                      ) : (
+                        members.map((m) => {
+                          const selected = selectedMembers.includes(m.id);
+
+                          return (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={[
+                                styles.chip,
+                                selected && styles.chipSelected,
+                              ]}
+                              onPress={() => toggleMember(m.id)}
+                            >
+                              <Text
+                                style={[
+                                  styles.chipText,
+                                  selected && styles.chipTextSelected,
+                                ]}
+                              >
+                                {m.profile.display_name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })
+                      )}
+                    </View>
+
                     <TextInput
                       style={styles.input}
-                      placeholder="Date d'échéance (AAAA-MM-JJ)"
                       value={taskDate}
                       editable={false}
                     />
-
-                    <Text style={styles.noteText}>
-                      💡 Assignation de membres : à venir
-                    </Text>
 
                     <TouchableOpacity
                       style={styles.buttonAdd}
@@ -506,11 +620,11 @@ const Assignement = () => {
                     </TouchableOpacity>
                   </>
                 )}
-              </View>
+              </ScrollView>
             ))}
           </ScrollView>
 
-          {/* Dots */}
+          {/* DOTS */}
           <View style={styles.dotContainer}>
             {pages.map((_, index) => (
               <View

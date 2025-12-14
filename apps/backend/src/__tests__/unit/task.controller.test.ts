@@ -416,9 +416,8 @@ describe('Task Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { completeTask } = await import(
-        '../../controllers/task.controller'
-      );
+      const { completeTask } =
+        await import('../../controllers/task.controller');
       await completeTask(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(

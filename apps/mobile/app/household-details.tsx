@@ -68,6 +68,7 @@ export default function HouseholdDetailsScreen() {
   const [pseudoInput, setPseudoInput] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -79,6 +80,12 @@ export default function HouseholdDetailsScreen() {
 
       if (response.success) {
         setMembers(response.members);
+
+        // Check if current user is owner
+        const currentUserMember = response.members.find(
+          (m) => m.user_id === user?.id
+        );
+        setIsOwner(currentUserMember?.role_name === 'owner');
       }
     } catch (error) {
       console.error('Error loading members:', error);
@@ -140,6 +147,59 @@ export default function HouseholdDetailsScreen() {
               }
             } finally {
               setRemovingMemberId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteGroup = async () => {
+    Alert.alert(
+      'Supprimer le foyer',
+      `Êtes-vous sûr de vouloir supprimer définitivement "${groupName}" ?\n\nCette action est irréversible et supprimera :\n- Tous les membres\n- Toutes les tâches\n- Toutes les invitations\n- Tout l'historique`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const response = await apiService.delete<{
+                success: boolean;
+                message: string;
+              }>(`/api/groups/${groupId}`);
+
+              if (response.success) {
+                Alert.alert(
+                  'Foyer supprimé',
+                  'Le foyer a été supprimé avec succès.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/organisation'),
+                    },
+                  ]
+                );
+              }
+            } catch (error: any) {
+              console.error('Error deleting group:', error);
+
+              if (error?.response?.status === 403) {
+                Alert.alert(
+                  'Permission refusée',
+                  'Seul le propriétaire du foyer peut le supprimer.'
+                );
+              } else {
+                Alert.alert(
+                  'Erreur',
+                  error?.response?.data?.message ||
+                    'Impossible de supprimer le foyer.'
+                );
+              }
+            } finally {
+              setLoading(false);
             }
           },
         },
@@ -234,12 +294,37 @@ export default function HouseholdDetailsScreen() {
           },
         ]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending invitation:', error);
-      Alert.alert(
-        'Erreur',
-        "Impossible d'envoyer l'invitation. Vérifiez que le pseudo existe."
-      );
+
+      // Check if invitation already exists
+      if (
+        error?.response?.status === 400 &&
+        (error?.response?.data?.error === 'Invitation already exists' ||
+          error?.response?.data?.message
+            ?.toLowerCase()
+            ?.includes('already exists'))
+      ) {
+        Alert.alert(
+          'Invitation existante',
+          `Une invitation est déjà en attente pour @${pseudoInput.trim()}. L'utilisateur peut utiliser son invitation existante pour rejoindre le foyer.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowInviteModal(false);
+                setPseudoInput('');
+                setInviteType('choice');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Erreur',
+          "Impossible d'envoyer l'invitation. Vérifiez que le pseudo existe."
+        );
+      }
     } finally {
       setInviteLoading(false);
     }
@@ -562,6 +647,26 @@ export default function HouseholdDetailsScreen() {
       padding: 8,
       marginLeft: 8,
     },
+    dangerZone: {
+      paddingHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 20,
+    },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      backgroundColor: '#ff4444',
+    },
+    deleteButtonText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+    },
   });
 
   return (
@@ -620,6 +725,20 @@ export default function HouseholdDetailsScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {/* Delete Group Button */}
+          {isOwner && (
+            <View style={styles.dangerZone}>
+              <TouchableOpacity
+                onPress={deleteGroup}
+                disabled={loading}
+                style={[styles.deleteButton, loading && styles.buttonDisabled]}
+              >
+                <MaterialIcons name="delete-outline" size={18} color="#fff" />
+                <Text style={styles.deleteButtonText}>Supprimer le foyer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
 
         {/* Invite Modal */}
@@ -695,7 +814,7 @@ export default function HouseholdDetailsScreen() {
                     />
                     <View style={styles.inviteOptionText}>
                       <Text style={styles.inviteOptionTitle}>
-                        Code à 6 caractères
+                        Code à 8 caractères
                       </Text>
                       <Text style={styles.inviteOptionDesc}>
                         Générer un code à partager

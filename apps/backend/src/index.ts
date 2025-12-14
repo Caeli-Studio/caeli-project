@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import cors from '@fastify/cors';
+import fastifyMultipart from '@fastify/multipart';
 import sensible from '@fastify/sensible';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -54,6 +55,12 @@ async function setupMiddleware(app: ReturnType<typeof createApp>) {
 
   // Sensible plugin for useful utilities
   await app.register(sensible);
+
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: 20 * 1024 * 1024, // 5MB max
+    },
+  });
 
   // Register Swagger/OpenAPI documentation
   await app.register(swagger, swaggerOptions);

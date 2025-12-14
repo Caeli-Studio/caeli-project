@@ -166,34 +166,36 @@ const Home: React.FC = () => {
     try {
       closeStatusModal();
 
-      const response = await taskService.updateTask(
-        selectedGroupId,
-        selectedTask.id,
-        { status: newStatus }
-      );
-
-      if (response.success) {
-        // Reload tasks
-        await loadTasks(selectedGroupId);
-
-        const statusLabels: Record<TaskStatus, string> = {
-          open: 'À faire',
-          done: 'Terminée',
-          cancelled: 'Annulée',
-        };
-
-        Alert.alert(
-          'Succès',
-          `Tâche marquée comme "${statusLabels[newStatus]}" !`
-        );
+      if (newStatus === 'done') {
+        // ✅ TERMINER UNE TÂCHE
+        await taskService.completeTask(selectedGroupId, selectedTask.id);
+      } else {
+        // ✅ AUTRES STATUTS
+        await taskService.updateTask(selectedGroupId, selectedTask.id, {
+          status: newStatus,
+        });
       }
+
+      await loadTasks(selectedGroupId);
+
+      const statusLabels: Record<TaskStatus, string> = {
+        open: 'À faire',
+        done: 'Terminée',
+        cancelled: 'Annulée',
+      };
+
+      Alert.alert(
+        'Succès',
+        `Tâche marquée comme "${statusLabels[newStatus]}" !`
+      );
     } catch (error) {
       console.error('Failed to update task status:', error);
-      const errorMessage =
+      Alert.alert(
+        'Erreur',
         error instanceof Error
           ? error.message
-          : 'Impossible de changer le statut';
-      Alert.alert('Erreur', errorMessage);
+          : 'Impossible de changer le statut'
+      );
     }
   };
 
@@ -243,6 +245,15 @@ const Home: React.FC = () => {
   const toggleTaskComplete = async (task: TaskWithDetails) => {
     if (!selectedGroupId) return;
 
+    // ⛔ PROTECTION FRONTEND
+    if (!task.can_complete) {
+      Alert.alert(
+        'Action impossible',
+        'Cette tâche est assignée à quelqu’un d’autre'
+      );
+      return;
+    }
+
     try {
       if (task.status === 'done') {
         Alert.alert('Info', 'Cette tâche est déjà terminée');
@@ -252,7 +263,6 @@ const Home: React.FC = () => {
       const response = await taskService.completeTask(selectedGroupId, task.id);
 
       if (response.success) {
-        // Reload tasks
         await loadTasks(selectedGroupId);
         Alert.alert('Succès', 'Tâche marquée comme terminée !');
       }

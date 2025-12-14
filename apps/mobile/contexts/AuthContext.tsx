@@ -2,7 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import type { User, AuthResponse } from '@/types/auth';
 
+import { apiService } from '@/services/api.service';
 import { authService } from '@/services/auth.service';
+
+type ProfileResponse = {
+  success: boolean;
+  profile?: User;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +17,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,37 +27,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Initialize auth on mount
+  // Load authentication on first mount
   useEffect(() => {
     initializeAuth();
   }, []);
 
+  /**
+   * INITIALIZE AUTH ON APP START
+   */
   const initializeAuth = async () => {
     try {
       setIsLoading(true);
 
-      // Initialize the auth service (sets up auto-refresh)
       await authService.initialize();
 
-      // Check if user is authenticated
       const authenticated = await authService.isAuthenticated();
       setIsAuthenticated(authenticated);
 
-      if (authenticated) {
-        // Get current user from storage
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-
-        // Verify session with backend
-        const sessionResult = await authService.getSession();
-        if (sessionResult.success && sessionResult.user) {
-          setUser(sessionResult.user);
-        } else {
-          // Session invalid, clear auth
-          setUser(null);
-          setIsAuthenticated(false);
-        }
+      if (!authenticated) {
+        setUser(null);
+        return;
       }
+
+      // 1️⃣ Check session
+      const sessionResult = await authService.getSession();
+      if (!sessionResult.success || !sessionResult.user) {
+        setUser(null);
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // 2️⃣ Load Supabase profile (SOURCE OF TRUTH)
+      try {
+        const profileRes =
+          await apiService.get<ProfileResponse>('/api/profile/me');
+
+        if (profileRes?.profile) {
+          setUser(profileRes.profile);
+          return; // ✔ Critical: do not overwrite afterward
+        }
+      } catch (err) {
+        console.log('❌ Impossible de charger le profil Supabase:', err);
+      }
+
+      // 3️⃣ Fallback if profile missing
+      setUser(sessionResult.user);
     } catch (error) {
       console.error('Error initializing auth:', error);
       setUser(null);
@@ -60,14 +81,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * SIGN IN WITH GOOGLE
+   */
   const signInWithGoogle = async (): Promise<AuthResponse> => {
     try {
       setIsLoading(true);
+
       const result = await authService.signInWithGoogle();
 
-      if (result.success && result.user) {
-        setUser(result.user);
-        setIsAuthenticated(true);
+      if (result.success) {
+        // Try to load profile RIGHT AFTER LOGIN
+        try {
+          const profileRes =
+            await apiService.get<ProfileResponse>('/api/profile/me');
+
+          if (profileRes?.profile) {
+            setUser(profileRes.profile);
+            setIsAuthenticated(true);
+            return result;
+          }
+        } catch (err) {
+          console.log('❌ Impossible de charger le profil Supabase:', err);
+        }
+
+        // Fallback: use auth user if profile missing
+        if (result.user) {
+          setUser(result.user ?? null);
+          setIsAuthenticated(true);
+        }
       }
 
       return result;
@@ -82,6 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * SIGN OUT
+   */
   const signOut = async (): Promise<void> => {
     try {
       setIsLoading(true);
@@ -95,12 +140,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /**
+   * REFRESH TOKEN + RELOAD PROFILE
+   */
   const refreshSession = async (): Promise<void> => {
     try {
       const result = await authService.refreshSession();
 
-      if (result.success && result.user) {
-        setUser(result.user);
+      if (result.success) {
+        // Reload Supabase profile
+        try {
+          const profileRes =
+            await apiService.get<ProfileResponse>('/api/profile/me');
+          if (profileRes?.profile) {
+            setUser(profileRes.profile);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch (err) {
+          console.log('❌ Impossible de rafraîchir le profil:', err);
+        }
+
+        // fallback
+        setUser(result.user ?? null);
         setIsAuthenticated(true);
       } else {
         setUser(null);
@@ -122,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshSession,
+        setUser,
       }}
     >
       {children}

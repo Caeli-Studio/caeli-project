@@ -48,6 +48,7 @@ export async function getMyProfile(
       success: true,
       profile: {
         ...response,
+        id: request.user.sub, // Add user ID for frontend compatibility
         email: request.user.email,
       },
     });

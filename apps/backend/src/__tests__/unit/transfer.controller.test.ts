@@ -90,9 +90,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { createTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { createTransfer } =
+        await import('../../controllers/transfer.controller');
       await createTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(201);
@@ -125,9 +124,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { createTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { createTransfer } =
+        await import('../../controllers/transfer.controller');
       await createTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(404);
@@ -170,9 +168,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getTransfers } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { getTransfers } =
+        await import('../../controllers/transfer.controller');
       await getTransfers(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -213,9 +210,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { getTransfer } =
+        await import('../../controllers/transfer.controller');
       await getTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -300,9 +296,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { acceptTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { acceptTransfer } =
+        await import('../../controllers/transfer.controller');
       await acceptTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -362,9 +357,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { refuseTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { refuseTransfer } =
+        await import('../../controllers/transfer.controller');
       await refuseTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -413,9 +407,8 @@ describe('Transfer Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { cancelTransfer } = await import(
-        '../../controllers/transfer.controller'
-      );
+      const { cancelTransfer } =
+        await import('../../controllers/transfer.controller');
       await cancelTransfer(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({

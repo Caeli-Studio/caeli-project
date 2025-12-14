@@ -60,9 +60,8 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { createGroup } =
+        await import('../../controllers/group.controller');
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(201);
@@ -91,9 +90,8 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { createGroup } =
+        await import('../../controllers/group.controller');
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(401);
@@ -138,9 +136,8 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { createGroup } =
+        await import('../../controllers/group.controller');
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -172,9 +169,8 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { createGroup } =
+        await import('../../controllers/group.controller');
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -237,9 +233,8 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getMyGroups } = await import(
-        '../../controllers/group.controller'
-      );
+      const { getMyGroups } =
+        await import('../../controllers/group.controller');
       await getMyGroups(mockRequest as any, mockReply as any);
 
       const groupsData = memberships.map((membership) => ({
@@ -270,9 +265,8 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { getMyGroups } = await import(
-        '../../controllers/group.controller'
-      );
+      const { getMyGroups } =
+        await import('../../controllers/group.controller');
       await getMyGroups(mockRequest as any, mockReply as any);
 
       // jwtVerify can throw (500) or return 401 depending on implementation
@@ -381,9 +375,8 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { updateGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { updateGroup } =
+        await import('../../controllers/group.controller');
       await updateGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -410,9 +403,8 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { deleteGroup } = await import(
-        '../../controllers/group.controller'
-      );
+      const { deleteGroup } =
+        await import('../../controllers/group.controller');
       await deleteGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({

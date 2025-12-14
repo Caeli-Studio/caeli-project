@@ -146,17 +146,12 @@ const Home: React.FC = () => {
 
       if (newStatus === 'done') {
         // ✅ TERMINER UNE TÂCHE
-        await taskService.completeTask(
-          selectedGroupId,
-          selectedTask.id
-        );
+        await taskService.completeTask(selectedGroupId, selectedTask.id);
       } else {
         // ✅ AUTRES STATUTS
-        await taskService.updateTask(
-          selectedGroupId,
-          selectedTask.id,
-          { status: newStatus }
-        );
+        await taskService.updateTask(selectedGroupId, selectedTask.id, {
+          status: newStatus,
+        });
       }
 
       await loadTasks(selectedGroupId);
@@ -181,7 +176,6 @@ const Home: React.FC = () => {
       );
     }
   };
-
 
   const deleteTask = async () => {
     if (!selectedGroupId || !selectedTask) return;
@@ -233,7 +227,7 @@ const Home: React.FC = () => {
     if (!task.can_complete) {
       Alert.alert(
         'Action impossible',
-        "Cette tâche est assignée à quelqu’un d’autre"
+        'Cette tâche est assignée à quelqu’un d’autre'
       );
       return;
     }
@@ -259,7 +253,6 @@ const Home: React.FC = () => {
       Alert.alert('Erreur', errorMessage);
     }
   };
-
 
   const handleSignOut = () => {
     Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [

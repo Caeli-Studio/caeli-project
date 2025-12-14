@@ -1,10 +1,7 @@
 import { apiService } from './api.service';
 
 class ProfileService {
-  updateMyProfile(payload: {
-    pseudo?: string;
-    avatar_url?: string;
-  }) {
+  updateMyProfile(payload: { pseudo?: string; avatar_url?: string }) {
     return apiService.put('/api/profile/me', payload);
   }
 

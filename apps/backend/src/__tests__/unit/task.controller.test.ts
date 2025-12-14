@@ -347,8 +347,8 @@ describe('Task Controller - Unit Tests', () => {
       mockSupabase.update.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockReturnValueOnce(mockSupabase);
-      mockSupabase.is.mockResolvedValueOnce({
-        data: null,
+      mockSupabase.select.mockResolvedValueOnce({
+        data: [{ id: 'assignment-1', completed_at: new Date().toISOString() }],
         error: null,
       } as any);
 
@@ -356,7 +356,7 @@ describe('Task Controller - Unit Tests', () => {
       mockSupabase.from.mockReturnValueOnce(mockSupabase);
       mockSupabase.select.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockReturnValueOnce({
-        data: [], // No assignments
+        data: [{ completed_at: new Date().toISOString() }], // One completed assignment
         error: null,
       } as any);
 
@@ -381,25 +381,22 @@ describe('Task Controller - Unit Tests', () => {
       mockSupabase.from.mockReturnValueOnce(mockSupabase);
       mockSupabase.select.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockResolvedValueOnce({
-        data: [], // No assignments
+        data: [
+          {
+            membership_id: mockMembershipId,
+            memberships: {
+              user_id: 'user-1',
+              profiles: { push_tokens: [] },
+            },
+          },
+        ],
         error: null,
       } as any);
 
-      // Mock getting task group_id
+      // Mock notification insert
       mockSupabase.from.mockReturnValueOnce(mockSupabase);
-      mockSupabase.select.mockReturnValueOnce(mockSupabase);
-      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
-      mockSupabase.single.mockResolvedValueOnce({
-        data: { group_id: mockGroupId },
-        error: null,
-      });
-
-      // Mock getting group members
-      mockSupabase.from.mockReturnValueOnce(mockSupabase);
-      mockSupabase.select.mockReturnValueOnce(mockSupabase);
-      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
-      mockSupabase.neq.mockResolvedValueOnce({
-        data: [], // No other members
+      mockSupabase.insert.mockResolvedValueOnce({
+        data: null,
         error: null,
       } as any);
 
@@ -416,8 +413,9 @@ describe('Task Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { completeTask } =
-        await import('../../controllers/task.controller');
+      const { completeTask } = await import(
+        '../../controllers/task.controller'
+      );
       await completeTask(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(

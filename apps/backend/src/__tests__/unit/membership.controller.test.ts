@@ -48,8 +48,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getMembers } =
-        await import('../../controllers/membership.controller');
+      const { getMembers } = await import(
+        '../../controllers/membership.controller'
+      );
       await getMembers(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -93,8 +94,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getMember } =
-        await import('../../controllers/membership.controller');
+      const { getMember } = await import(
+        '../../controllers/membership.controller'
+      );
       await getMember(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -125,8 +127,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getMember } =
-        await import('../../controllers/membership.controller');
+      const { getMember } = await import(
+        '../../controllers/membership.controller'
+      );
       await getMember(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(404);
@@ -169,8 +172,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { updateMember } =
-        await import('../../controllers/membership.controller');
+      const { updateMember } = await import(
+        '../../controllers/membership.controller'
+      );
       await updateMember(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(
@@ -184,12 +188,21 @@ describe('Membership Controller - Unit Tests', () => {
 
   describe('DELETE /api/groups/:group_id/members/:membership_id', () => {
     it('should remove member successfully', async () => {
-      // Mock member lookup
+      // Mock member lookup (get role_name)
       mockSupabase.from.mockReturnValueOnce(mockSupabase);
       mockSupabase.select.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.single.mockResolvedValueOnce({
         data: { role_name: 'member' },
+        error: null,
+      } as any);
+
+      // Mock member lookup (get user_id)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { user_id: mockUserId },
         error: null,
       } as any);
 
@@ -199,6 +212,25 @@ describe('Membership Controller - Unit Tests', () => {
       mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockResolvedValueOnce({
         data: { id: mockMemberId },
+        error: null,
+      } as any);
+
+      // Mock profile lookup (get pseudo)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { pseudo: 'testpseudo' },
+        error: null,
+      } as any);
+
+      // Mock invitation delete
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.delete.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.is.mockResolvedValueOnce({
+        data: null,
         error: null,
       } as any);
 
@@ -214,8 +246,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { removeMember } =
-        await import('../../controllers/membership.controller');
+      const { removeMember } = await import(
+        '../../controllers/membership.controller'
+      );
       await removeMember(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -281,8 +314,9 @@ describe('Membership Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { inviteMember } =
-        await import('../../controllers/membership.controller');
+      const { inviteMember } = await import(
+        '../../controllers/membership.controller'
+      );
       await inviteMember(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(201);

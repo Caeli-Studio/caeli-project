@@ -4,10 +4,9 @@ import {
   getUserProfile,
   updateMyProfile,
   uploadAvatar,
-  getMyTaskStats
+  getMyTaskStats,
 } from '../controllers/profile.controller';
 import { verifyJWT } from '../utils/auth';
-import { loadMembership } from '../middleware/permissions';
 import { customLogger } from '../utils/logger';
 
 import type { FastifyInstance } from 'fastify';

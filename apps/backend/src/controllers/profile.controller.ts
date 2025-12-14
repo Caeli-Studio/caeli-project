@@ -70,10 +70,6 @@ export async function updateMyProfile(
 
     const updateData: Record<string, string> = {};
 
-    if (request.body.display_name) {
-      updateData.display_name = request.body.display_name;
-    }
-
     if (request.body.pseudo !== undefined) {
       if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
         return reply.status(400).send({
@@ -192,50 +188,26 @@ export async function createProfile(
   try {
     await request.jwtVerify();
 
-    const { data: existingProfile } = await request.supabaseClient
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', request.user.sub)
-      .single();
-
-    if (existingProfile) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Profile already exists',
-      });
-    }
-
-    if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Invalid pseudo format',
-        message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
-      });
-    }
+    const googleName =
+      request.user.name ||
+      `${request.user.given_name ?? ''} ${request.user.family_name ?? ''}`.trim();
 
     const { data: profile, error } = await request.supabaseClient
       .from('profiles')
-      .insert({
-        user_id: request.user.sub,
-        display_name: request.body.display_name,
-        pseudo: request.body.pseudo,
-        avatar_url: request.body.avatar_url,
-        locale: request.body.locale || 'en',
-      })
+      .upsert(
+        {
+          user_id: request.user.sub,
+          display_name: googleName, // ✅ toujours synchronisé
+          avatar_url: request.user.picture, // ✅ photo Google
+          locale: request.body.locale || 'fr',
+        },
+        { onConflict: 'user_id' }
+      )
       .select()
       .single();
 
     if (error) {
       request.log.error(error, 'Failed to create profile');
-
-      if (error.code === '23505' && error.message.includes('pseudo')) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Pseudo already taken',
-          message: 'This pseudo is already in use by another user',
-        });
-      }
-
       return reply.status(400).send({
         success: false,
         error: 'Failed to create profile',
@@ -252,7 +224,6 @@ export async function createProfile(
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 }
@@ -397,4 +368,3 @@ export async function getMyTaskStats(
     });
   }
 }
-

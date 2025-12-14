@@ -1,6 +1,5 @@
 import type {
   AssignTaskRequest,
-  CompleteTaskRequest,
   CreateTaskRequest,
   TaskQueryParams,
   TaskResponse,
@@ -358,10 +357,7 @@ export async function updateTask(
         required_count: request.body.required_count,
         is_free: request.body.is_free,
         status:
-          request.body.status === 'done'
-            ? undefined
-            : request.body.status,
-
+          request.body.status === 'done' ? undefined : request.body.status,
       })
       .eq('id', request.params.task_id)
       .eq('group_id', request.params.group_id)
@@ -534,7 +530,8 @@ export async function completeTask(
       .eq('task_id', request.params.task_id);
 
     const allCompleted =
-      assignments?.length > 0 &&
+      Array.isArray(assignments) &&
+      assignments.length > 0 &&
       assignments.every((a) => a.completed_at !== null);
 
     if (allCompleted) {
@@ -556,7 +553,6 @@ export async function completeTask(
     });
   }
 }
-
 
 /**
  * Take a free task

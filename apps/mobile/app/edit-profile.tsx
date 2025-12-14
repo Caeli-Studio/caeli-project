@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { API_BASE_URL } from '@/lib/config';
 import { storage } from '@/lib/storage';
-import { updateMyProfile } from '@/services/profile.service';
+import { profileService } from '@/services/profile.service';
 
 type UpdateProfileResponse = {
   success: boolean;
@@ -98,7 +98,7 @@ export default function EditProfileScreen() {
 
       // Si le nom a changé → update via backend
       if (name !== user?.pseudo) {
-        const res = (await updateMyProfile({
+        const res = (await profileService.updateMyProfile({
           pseudo: name,
         })) as UpdateProfileResponse;
         updatedProfile = res.profile;

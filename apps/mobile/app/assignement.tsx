@@ -282,9 +282,8 @@ const Assignement = () => {
       borderRadius: 10,
       padding: 16,
       maxWidth: '90%',
-      height: 350,
+      maxHeight: '75%',
       alignItems: 'center',
-      justifyContent: 'center',
       shadowColor: theme.colors.shadow,
       shadowOpacity: 0.1,
       shadowRadius: 5,
@@ -293,9 +292,6 @@ const Assignement = () => {
 
     innerContent: {
       width: width * 0.82,
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
 
     pageTitle: {
@@ -500,7 +496,16 @@ const Assignement = () => {
           >
             {/* PAGE 1 — LISTE DES TÂCHES */}
             {pages.map((page, index) => (
-              <View style={styles.innerContent} key={index}>
+              <ScrollView
+                key={index}
+                style={styles.innerContent}
+                contentContainerStyle={{
+                  alignItems: 'center',
+                  paddingBottom: 20,
+                }}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
                 {index === 0 ? (
                   loadingTasks ? (
                     <ActivityIndicator
@@ -512,10 +517,7 @@ const Assignement = () => {
                   ) : (
                     <>
                       <Text style={styles.pageTitle}>{page.text}</Text>
-                      <ScrollView
-                        style={{ width: '100%', maxHeight: 270 }}
-                        showsVerticalScrollIndicator={true}
-                      >
+                      <View style={{ width: '100%' }}>
                         {tasks.map((task) => (
                           <View key={task.id} style={styles.taskBox}>
                             <Text style={styles.taskTitle}>{task.title}</Text>
@@ -540,7 +542,7 @@ const Assignement = () => {
                             )}
                           </View>
                         ))}
-                      </ScrollView>
+                      </View>
                     </>
                   )
                 ) : (
@@ -618,7 +620,7 @@ const Assignement = () => {
                     </TouchableOpacity>
                   </>
                 )}
-              </View>
+              </ScrollView>
             ))}
           </ScrollView>
 

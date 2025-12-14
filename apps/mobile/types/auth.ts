@@ -9,6 +9,14 @@ export interface User {
   avatar?: string;
   provider?: string;
   created_at?: string;
+
+  pseudo?: string;
+  avatar_url?: string;
+
+  memberships?: {
+    id: string;
+    group_id: string;
+  }[];
 }
 
 export interface Session {

@@ -3,15 +3,14 @@ import {
   getMyProfile,
   getUserProfile,
   updateMyProfile,
+  uploadAvatar,
+  getMyTaskStats,
 } from '../controllers/profile.controller';
 import { verifyJWT } from '../utils/auth';
 import { customLogger } from '../utils/logger';
 
 import type { FastifyInstance } from 'fastify';
 
-/**
- * Profile routes
- */
 export default async function profileRoutes(fastify: FastifyInstance) {
   fastify.get('/me', {
     onRequest: [verifyJWT],
@@ -69,6 +68,11 @@ export default async function profileRoutes(fastify: FastifyInstance) {
     handler: updateMyProfile,
   });
 
+  fastify.put('/me/avatar', {
+    onRequest: [verifyJWT],
+    handler: uploadAvatar,
+  });
+
   fastify.post('/', {
     onRequest: [verifyJWT],
     schema: {
@@ -115,7 +119,7 @@ export default async function profileRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['user_id'],
         properties: {
-          user_id: { type: 'string', format: 'uuid', description: 'User ID' },
+          user_id: { type: 'string', format: 'uuid' },
         },
       },
       response: {
@@ -132,9 +136,17 @@ export default async function profileRoutes(fastify: FastifyInstance) {
     handler: getUserProfile,
   });
 
-  // Log registered routes
+  fastify.get('/me/stats', {
+    onRequest: [verifyJWT],
+    handler: getMyTaskStats,
+  });
+
+  // Logs
   customLogger.route('GET', '/api/profile/me');
   customLogger.route('PUT', '/api/profile/me');
+  customLogger.route('PUT', '/api/profile/me/avatar'); // 👈 AJOUT
   customLogger.route('POST', '/api/profile');
   customLogger.route('GET', '/api/profile/:user_id');
+  customLogger.route('GET', '/api/profile/me/stats');
 }
+// commentaire

@@ -288,7 +288,7 @@ export interface CreateTaskRequest {
   required_count?: number;
   is_free?: boolean;
   template_id?: string;
-  assigned_to?: string[]; // membership IDs
+  assigned_membership_ids?: string[];
 }
 
 export interface UpdateTaskRequest {
@@ -367,8 +367,10 @@ export interface ConnectCalendarRequest {
   authorization_code: string;
 }
 
-export interface CalendarConnectionResponse
-  extends Omit<CalendarConnection, 'access_token' | 'refresh_token'> {
+export interface CalendarConnectionResponse extends Omit<
+  CalendarConnection,
+  'access_token' | 'refresh_token'
+> {
   is_active: boolean;
 }
 

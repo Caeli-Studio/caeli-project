@@ -44,9 +44,8 @@ describe('Hub Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { createHubSession } = await import(
-        '../../controllers/hub.controller'
-      );
+      const { createHubSession } =
+        await import('../../controllers/hub.controller');
       await createHubSession(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -96,9 +95,8 @@ describe('Hub Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { createHubSession } = await import(
-        '../../controllers/hub.controller'
-      );
+      const { createHubSession } =
+        await import('../../controllers/hub.controller');
       await createHubSession(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(201);
@@ -202,9 +200,8 @@ describe('Hub Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { disconnectFromHub } = await import(
-        '../../controllers/hub.controller'
-      );
+      const { disconnectFromHub } =
+        await import('../../controllers/hub.controller');
       await disconnectFromHub(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({

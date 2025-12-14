@@ -7,9 +7,6 @@ import type {
 } from '../types/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-/**
- * Get current user's profile
- */
 export async function getMyProfile(
   request: FastifyRequest,
   reply: FastifyReply
@@ -31,7 +28,6 @@ export async function getMyProfile(
       });
     }
 
-    // Get user's group memberships
     const { data: memberships } = await request.supabaseClient
       .from('memberships')
       .select(
@@ -50,7 +46,10 @@ export async function getMyProfile(
 
     return reply.send({
       success: true,
-      profile: response,
+      profile: {
+        ...response,
+        email: request.user.email,
+      },
     });
   } catch (err) {
     request.log.error(err, 'Error in getMyProfile');
@@ -62,9 +61,6 @@ export async function getMyProfile(
   }
 }
 
-/**
- * Update current user's profile
- */
 export async function updateMyProfile(
   request: FastifyRequest<{ Body: UpdateProfileRequest }>,
   reply: FastifyReply
@@ -73,10 +69,6 @@ export async function updateMyProfile(
     await request.jwtVerify();
 
     const updateData: Record<string, string> = {};
-
-    if (request.body.display_name) {
-      updateData.display_name = request.body.display_name;
-    }
 
     if (request.body.pseudo !== undefined) {
       if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
@@ -111,7 +103,6 @@ export async function updateMyProfile(
     if (error) {
       request.log.error(error, 'Failed to update profile');
 
-      // Handle unique constraint violation
       if (error.code === '23505' && error.message.includes('pseudo')) {
         return reply.status(400).send({
           success: false,
@@ -127,9 +118,24 @@ export async function updateMyProfile(
       });
     }
 
+    const { data: memberships } = await request.supabaseClient
+      .from('memberships')
+      .select(
+        `
+        *,
+        group:groups(*)
+      `
+      )
+      .eq('user_id', request.user.sub)
+      .is('left_at', null);
+
     return reply.send({
       success: true,
-      profile,
+      profile: {
+        ...profile,
+        memberships: memberships || [],
+        email: request.user.email,
+      },
     });
   } catch (err) {
     request.log.error(err, 'Error in updateMyProfile');
@@ -141,9 +147,6 @@ export async function updateMyProfile(
   }
 }
 
-/**
- * Get a specific user's profile (public info only)
- */
 export async function getUserProfile(
   request: FastifyRequest<{ Params: { user_id: string } }>,
   reply: FastifyReply
@@ -178,9 +181,6 @@ export async function getUserProfile(
   }
 }
 
-/**
- * Create profile after sign up (called automatically via trigger or manually)
- */
 export async function createProfile(
   request: FastifyRequest<{ Body: CreateProfileRequest }>,
   reply: FastifyReply
@@ -188,52 +188,26 @@ export async function createProfile(
   try {
     await request.jwtVerify();
 
-    const { data: existingProfile } = await request.supabaseClient
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', request.user.sub)
-      .single();
-
-    if (existingProfile) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Profile already exists',
-      });
-    }
-
-    // Validate pseudo if provided
-    if (request.body.pseudo && !isValidPseudo(request.body.pseudo)) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Invalid pseudo format',
-        message: 'Pseudo must be 3-20 alphanumeric characters or underscores',
-      });
-    }
+    const googleName =
+      request.user.name ||
+      `${request.user.given_name ?? ''} ${request.user.family_name ?? ''}`.trim();
 
     const { data: profile, error } = await request.supabaseClient
       .from('profiles')
-      .insert({
-        user_id: request.user.sub,
-        display_name: request.body.display_name,
-        pseudo: request.body.pseudo,
-        avatar_url: request.body.avatar_url,
-        locale: request.body.locale || 'en',
-      })
+      .upsert(
+        {
+          user_id: request.user.sub,
+          display_name: googleName, // ✅ toujours synchronisé
+          avatar_url: request.user.picture, // ✅ photo Google
+          locale: request.body.locale || 'fr',
+        },
+        { onConflict: 'user_id' }
+      )
       .select()
       .single();
 
     if (error) {
       request.log.error(error, 'Failed to create profile');
-
-      // Handle unique constraint violation
-      if (error.code === '23505' && error.message.includes('pseudo')) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Pseudo already taken',
-          message: 'This pseudo is already in use by another user',
-        });
-      }
-
       return reply.status(400).send({
         success: false,
         error: 'Failed to create profile',
@@ -250,7 +224,147 @@ export async function createProfile(
     return reply.status(500).send({
       success: false,
       error: 'Internal server error',
-      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+}
+
+export async function uploadAvatar(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    await request.jwtVerify();
+
+    const file = await request.file();
+
+    if (!file) {
+      return reply.status(400).send({
+        success: false,
+        error: 'No file provided',
+      });
+    }
+
+    const fileBuffer = await file.toBuffer();
+    const filename = `avatars/${request.user.sub}-${Date.now()}.jpg`;
+
+    const { error: uploadError } = await request.supabaseClient.storage
+      .from('avatars')
+      .upload(filename, fileBuffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error(uploadError);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to upload avatar',
+      });
+    }
+
+    const { data: publicUrlData } = request.supabaseClient.storage
+      .from('avatars')
+      .getPublicUrl(filename);
+
+    const avatar_url = publicUrlData.publicUrl;
+
+    const { data: profile, error: updateError } = await request.supabaseClient
+      .from('profiles')
+      .update({ avatar_url })
+      .eq('user_id', request.user.sub)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(updateError);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to update avatar URL',
+      });
+    }
+
+    const { data: memberships } = await request.supabaseClient
+      .from('memberships')
+      .select(
+        `
+        *,
+        group:groups(*)
+      `
+      )
+      .eq('user_id', request.user.sub)
+      .is('left_at', null);
+
+    return reply.send({
+      success: true,
+      profile: {
+        ...profile,
+        memberships: memberships || [],
+        email: request.user.email,
+      },
+    });
+  } catch (err) {
+    console.error('Error in uploadAvatar:', err);
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
+export async function getMyTaskStats(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    await request.jwtVerify();
+
+    // 1️⃣ récupérer toutes les memberships actives du user
+    const { data: memberships, error: membershipError } =
+      await request.supabaseClient
+        .from('memberships')
+        .select('id')
+        .eq('user_id', request.user.sub)
+        .is('left_at', null);
+
+    if (membershipError) {
+      return reply.status(400).send({
+        success: false,
+        error: membershipError.message,
+      });
+    }
+
+    if (!memberships || memberships.length === 0) {
+      return reply.send({
+        success: true,
+        completed_tasks: 0,
+      });
+    }
+
+    const membershipIds = memberships.map((m) => m.id);
+
+    // 2️⃣ compter les tâches complétées
+    const { count, error } = await request.supabaseClient
+      .from('task_assignments')
+      .select('*', { count: 'exact', head: true })
+      .in('membership_id', membershipIds)
+      .not('completed_at', 'is', null);
+
+    if (error) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    return reply.send({
+      success: true,
+      completed_tasks: count ?? 0,
+    });
+  } catch (err) {
+    request.log.error(err, 'Error in getMyTaskStats');
+    return reply.status(500).send({
+      success: false,
+      error: 'Internal server error',
     });
   }
 }

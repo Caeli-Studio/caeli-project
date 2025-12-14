@@ -21,9 +21,9 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '192.168.0.84';
+const LOCAL_IP_ADDRESS = '192.168.0.9';
 const BACKEND_PORT = '3000';
-
+export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
 /**
  * Get the local development URL based on platform
  */

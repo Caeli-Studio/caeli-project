@@ -328,24 +328,84 @@ describe('Task Controller - Unit Tests', () => {
     it('should complete a task successfully', async () => {
       const completedTask = {
         id: mockTaskId,
-        status: 'completed',
+        status: 'done',
+        title: 'Test Task',
+        group_id: mockGroupId,
       };
 
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.update.mockReturnValue(mockSupabase);
-      mockSupabase.eq.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
+      // Reset all mocks
+      mockSupabase.from.mockReset();
+      mockSupabase.update.mockReset();
+      mockSupabase.eq.mockReset();
+      mockSupabase.select.mockReset();
+      mockSupabase.single.mockReset();
+      mockSupabase.insert.mockReset();
+      mockSupabase.is.mockReset();
+
+      // Mock assignment update (mark as completed)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.update.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockResolvedValueOnce({
+        data: [{ id: 'assignment-1', completed_at: new Date().toISOString() }],
+        error: null,
+      } as any);
+
+      // Mock check for assignments
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce({
+        data: [{ completed_at: new Date().toISOString() }], // One completed assignment
+        error: null,
+      } as any);
+
+      // Mock marking task as done
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.update.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      } as any);
+
+      // Mock getting task details
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.single.mockResolvedValueOnce({
         data: completedTask,
         error: null,
       });
+
+      // Mock getting task assignments
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockResolvedValueOnce({
+        data: [
+          {
+            membership_id: mockMembershipId,
+            memberships: {
+              user_id: 'user-1',
+              profiles: { push_tokens: [] },
+            },
+          },
+        ],
+        error: null,
+      } as any);
+
+      // Mock notification insert
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.insert.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      } as any);
 
       const mockRequest = {
         supabaseClient: mockSupabase,
         params: { group_id: mockGroupId, task_id: mockTaskId },
         body: {},
         membership: { id: mockMembershipId },
-        log: { error: vi.fn() },
+        log: { error: vi.fn(), info: vi.fn() },
       };
 
       const mockReply = {
@@ -353,8 +413,9 @@ describe('Task Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { completeTask } =
-        await import('../../controllers/task.controller');
+      const { completeTask } = await import(
+        '../../controllers/task.controller'
+      );
       await completeTask(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith(

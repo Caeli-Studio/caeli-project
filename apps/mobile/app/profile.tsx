@@ -1,5 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +17,6 @@ import Navbar from '@/components/navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useEffect, useState } from 'react';
 import { profileService } from '@/services/profile.service';
 
 const Profile = () => {
@@ -203,7 +204,7 @@ const Profile = () => {
 
             <TouchableOpacity
               style={styles.optionButton}
-              onPress={() => Alert.alert('Notifications')}
+              onPress={() => router.push('/notification-settings')}
             >
               <MaterialIcons
                 name="notifications"

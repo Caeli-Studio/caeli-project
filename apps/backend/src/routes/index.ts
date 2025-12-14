@@ -8,6 +8,7 @@ import invitationRoutes from './invitation.routes';
 import membershipRoutes from './membership.routes';
 import notificationRoutes from './notification.routes';
 import profileRoutes from './profile.routes';
+import { pushTokenRoutes } from './push-token.routes';
 import supabaseHealthRoutes from './supabase-health.routes';
 import taskRoutes from './task.routes';
 import transferRoutes from './transfer.routes';
@@ -44,6 +45,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
       // Notification routes
       await api.register(notificationRoutes, { prefix: '/notifications' });
+
+      // Push token routes
+      await api.register(pushTokenRoutes);
 
       // Group-scoped routes
       await api.register(

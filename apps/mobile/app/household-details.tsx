@@ -234,12 +234,37 @@ export default function HouseholdDetailsScreen() {
           },
         ]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending invitation:', error);
-      Alert.alert(
-        'Erreur',
-        "Impossible d'envoyer l'invitation. Vérifiez que le pseudo existe."
-      );
+
+      // Check if invitation already exists
+      if (
+        error?.response?.status === 400 &&
+        (error?.response?.data?.error === 'Invitation already exists' ||
+          error?.response?.data?.message
+            ?.toLowerCase()
+            ?.includes('already exists'))
+      ) {
+        Alert.alert(
+          'Invitation existante',
+          `Une invitation est déjà en attente pour @${pseudoInput.trim()}. L'utilisateur peut utiliser son invitation existante pour rejoindre le foyer.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowInviteModal(false);
+                setPseudoInput('');
+                setInviteType('choice');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Erreur',
+          "Impossible d'envoyer l'invitation. Vérifiez que le pseudo existe."
+        );
+      }
     } finally {
       setInviteLoading(false);
     }
@@ -695,7 +720,7 @@ export default function HouseholdDetailsScreen() {
                     />
                     <View style={styles.inviteOptionText}>
                       <Text style={styles.inviteOptionTitle}>
-                        Code à 6 caractères
+                        Code à 8 caractères
                       </Text>
                       <Text style={styles.inviteOptionDesc}>
                         Générer un code à partager

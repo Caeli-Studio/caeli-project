@@ -380,6 +380,13 @@ export async function removeMember(
       }
     }
 
+    // Get member's user_id to revoke pending invitations
+    const { data: memberData } = await request.supabaseClient
+      .from('memberships')
+      .select('user_id')
+      .eq('id', request.params.membership_id)
+      .single();
+
     // Mark as left
     const { error } = await request.supabaseClient
       .from('memberships')
@@ -394,6 +401,27 @@ export async function removeMember(
         error: 'Failed to remove member',
         message: error.message,
       });
+    }
+
+    // Delete any pending invitations for this user in this group
+    if (memberData?.user_id) {
+      // Get user's pseudo
+      const { data: profile } = await request.supabaseClient
+        .from('profiles')
+        .select('pseudo')
+        .eq('user_id', memberData.user_id)
+        .single();
+
+      if (profile?.pseudo) {
+        // Delete invitation by pseudo for this group
+        // This allows re-inviting the same user immediately after removal
+        await request.supabaseClient
+          .from('invitations')
+          .delete()
+          .eq('group_id', request.params.group_id)
+          .eq('pseudo', profile.pseudo)
+          .is('revoked_at', null);
+      }
     }
 
     return reply.send({

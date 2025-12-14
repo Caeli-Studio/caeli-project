@@ -296,13 +296,38 @@ export async function acceptInvitation(
       }
     }
 
-    // Find invitation
-    const { data: invitation, error: invError } = await request.supabaseClient
-      .from('invitations')
-      .select('*')
-      .or(`code.eq.${code_or_pseudo},pseudo.eq.${code_or_pseudo}`)
-      .is('revoked_at', null)
-      .single();
+    // Find invitation - try by code first (unique), then by pseudo (may have duplicates)
+    let invitation;
+    let invError;
+
+    // First, try to find by code (codes are unique)
+    const { data: invitationByCode, error: codeError } =
+      await request.supabaseClient
+        .from('invitations')
+        .select('*')
+        .eq('code', code_or_pseudo)
+        .is('revoked_at', null)
+        .maybeSingle();
+
+    if (invitationByCode) {
+      invitation = invitationByCode;
+    } else {
+      // If not found by code, try by pseudo (may have multiple, take most recent)
+      const { data: invitations, error: pseudoError } =
+        await request.supabaseClient
+          .from('invitations')
+          .select('*')
+          .eq('pseudo', code_or_pseudo)
+          .is('revoked_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+      if (invitations && invitations.length > 0) {
+        invitation = invitations[0];
+      } else {
+        invError = pseudoError || codeError;
+      }
+    }
 
     if (invError || !invitation) {
       return reply.status(404).send({
@@ -344,8 +369,8 @@ export async function acceptInvitation(
       }
     }
 
-    // Check if already a member
-    const { data: existingMember } = await request.supabaseClient
+    // Check if already an active member
+    const { data: activeMember } = await request.supabaseClient
       .from('memberships')
       .select('id')
       .eq('group_id', invitation.group_id)
@@ -353,7 +378,7 @@ export async function acceptInvitation(
       .is('left_at', null)
       .single();
 
-    if (existingMember) {
+    if (activeMember) {
       return reply.status(400).send({
         success: false,
         error: 'Already a member',
@@ -361,26 +386,65 @@ export async function acceptInvitation(
       });
     }
 
-    // Create membership
-    const { data: membership, error: memberError } =
-      await request.supabaseClient
-        .from('memberships')
-        .insert({
-          group_id: invitation.group_id,
-          user_id: request.user.sub,
-          role_name: 'member',
-          importance: 50,
-        })
-        .select()
-        .single();
+    // Check if user was previously a member (soft-deleted)
+    const { data: previousMember } = await request.supabaseClient
+      .from('memberships')
+      .select('id')
+      .eq('group_id', invitation.group_id)
+      .eq('user_id', request.user.sub)
+      .not('left_at', 'is', null)
+      .single();
 
-    if (memberError) {
-      request.log.error(memberError, 'Failed to create membership');
-      return reply.status(400).send({
-        success: false,
-        error: 'Failed to join group',
-        message: memberError.message,
-      });
+    let membership;
+
+    if (previousMember) {
+      // Reactivate previous membership
+      const { data: reactivated, error: reactivateError } =
+        await request.supabaseClient
+          .from('memberships')
+          .update({
+            left_at: null,
+            role_name: 'member',
+            importance: 50,
+          })
+          .eq('id', previousMember.id)
+          .select()
+          .single();
+
+      if (reactivateError) {
+        request.log.error(reactivateError, 'Failed to reactivate membership');
+        return reply.status(400).send({
+          success: false,
+          error: 'Failed to rejoin group',
+          message: reactivateError.message,
+        });
+      }
+
+      membership = reactivated;
+    } else {
+      // Create new membership
+      const { data: newMembership, error: memberError } =
+        await request.supabaseClient
+          .from('memberships')
+          .insert({
+            group_id: invitation.group_id,
+            user_id: request.user.sub,
+            role_name: 'member',
+            importance: 50,
+          })
+          .select()
+          .single();
+
+      if (memberError) {
+        request.log.error(memberError, 'Failed to create membership');
+        return reply.status(400).send({
+          success: false,
+          error: 'Failed to join group',
+          message: memberError.message,
+        });
+      }
+
+      membership = newMembership;
     }
 
     // Increment invitation uses

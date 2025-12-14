@@ -149,3 +149,4 @@ export default async function profileRoutes(fastify: FastifyInstance) {
   customLogger.route('GET', '/api/profile/:user_id');
   customLogger.route('GET', '/api/profile/me/stats');
 }
+// commentaire

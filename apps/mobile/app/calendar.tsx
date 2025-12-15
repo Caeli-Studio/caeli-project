@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 
@@ -34,9 +35,20 @@ const MyCalendar: React.FC = () => {
 
   // ✅ tâches assignées à moi (tous groupes confondus)
   const [myTasks, setMyTasks] = useState<TaskWithDetails[]>([]);
-  const [markedTaskDates, setMarkedTaskDates] = useState<Record<string, any>>(
-    {}
-  );
+  type MarkedDate = {
+    marked?: boolean;
+    selected?: boolean;
+    selectedColor?: string;
+    dotColor?: string;
+    customStyles?: {
+      container?: object;
+      text?: object;
+    };
+  };
+
+  const [markedTaskDates, setMarkedTaskDates] = useState<
+    Record<string, MarkedDate>
+  >({});
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -155,23 +167,64 @@ const MyCalendar: React.FC = () => {
       alignItems: 'center',
     },
     modalContent: {
-      width: '70%',
+      width: '85%',
       backgroundColor: theme.colors.surface,
       borderRadius: 10,
       padding: 20,
       alignItems: 'center',
     },
-    modalText: {
-      fontSize: 16,
-      marginBottom: 10,
-      color: theme.colors.textSecondary,
-      textAlign: 'center',
-    },
+
     modalDate: {
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 12,
       color: theme.colors.text,
+    },
+
+    modalSubtitle: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+
+    taskItem: {
+      width: '100%',
+      backgroundColor: theme.colors.card,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.primary,
+    },
+
+    taskTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+
+    taskDescription: {
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      marginTop: 2,
+    },
+
+    addButton: {
+      alignItems: 'center',
+      marginTop: 8,
+    },
+
+    addButtonText: {
+      marginTop: 4,
+      fontSize: 14,
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+    taskList: {
+      width: '100%',
+      maxHeight: 260,
+      marginBottom: 12,
     },
   });
 
@@ -208,20 +261,51 @@ const MyCalendar: React.FC = () => {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
+                {/* Date */}
                 <Text style={styles.modalDate}>{selectedDate}</Text>
 
-                <Text style={styles.modalText}>
+                {/* Sous-titre */}
+                <Text style={styles.modalSubtitle}>
                   {tasksForSelectedDate.length === 0
-                    ? 'Aucune tâche prévue'
-                    : `${tasksForSelectedDate.length} tâche(s) à faire`}
+                    ? 'Aucune tâche pour cette journée'
+                    : 'Tâches à effectuer'}
                 </Text>
 
-                <TouchableOpacity onPress={handleAddPress}>
+                {/* Liste des tâches */}
+                {tasksForSelectedDate.length > 0 && (
+                  <ScrollView
+                    style={styles.taskList}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {tasksForSelectedDate.map((task) => (
+                      <View key={task.id} style={styles.taskItem}>
+                        <Text style={styles.taskTitle}>{task.title}</Text>
+
+                        {task.description && (
+                          <Text style={styles.taskDescription}>
+                            {task.description}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* Bouton ajouter */}
+                <TouchableOpacity
+                  onPress={handleAddPress}
+                  style={styles.addButton}
+                >
                   <MaterialIcons
                     name="add-circle"
-                    size={60}
+                    size={56}
                     color={theme.colors.primary}
                   />
+                  <Text style={styles.addButtonText}>
+                    {tasksForSelectedDate.length === 0
+                      ? 'Créer une tâche'
+                      : 'Ajouter une tâche'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  ScrollView,
 } from 'react-native';
 
 import Navbar from '../components/navbar';
@@ -48,30 +49,121 @@ const Home: React.FC = () => {
     null
   );
 
+  // Multi-household state
+  const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
+  const [allTasks, setAllTasks] = useState<Map<string, TaskWithDetails[]>>(
+    new Map()
+  );
+  const [selectedHouseholdFilter, setSelectedHouseholdFilter] = useState<
+    string | 'all'
+  >('all');
+  const [myMembershipIds, setMyMembershipIds] = useState<Map<string, string>>(
+    new Map()
+  );
+
+  // Filter persistence
+  const FILTERS_STORAGE_KEY = '@caeli/home_filters';
+
+  interface HomeFilters {
+    selectedGroupId: string | 'all';
+    statusFilter: FilterType;
+  }
+
+  const saveFilters = async () => {
+    try {
+      const filters: HomeFilters = {
+        selectedGroupId: selectedHouseholdFilter,
+        statusFilter: currentFilter,
+      };
+      await AsyncStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+    } catch (error) {
+      console.error('Failed to save filters:', error);
+    }
+  };
+
+  const loadFilters = async (): Promise<HomeFilters | null> => {
+    try {
+      const stored = await AsyncStorage.getItem(FILTERS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error('Failed to load filters:', error);
+      return null;
+    }
+  };
+
   // Load initial data
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Aggregate tasks based on selected household filter
+  useEffect(() => {
+    let aggregated: TaskWithDetails[] = [];
+
+    if (selectedHouseholdFilter === 'all') {
+      // Merge all tasks from all households
+      allTasks.forEach((tasks) => {
+        aggregated = [...aggregated, ...tasks];
+      });
+    } else {
+      // Get tasks from specific household
+      aggregated = allTasks.get(selectedHouseholdFilter) || [];
+    }
+
+    // Sort by due date
+    aggregated.sort((a, b) => {
+      if (!a.due_at) return 1;
+      if (!b.due_at) return -1;
+      return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+    });
+
+    setTasks(aggregated);
+  }, [allTasks, selectedHouseholdFilter]);
+
+  // Auto-save filters when they change
+  useEffect(() => {
+    saveFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHouseholdFilter, currentFilter]);
 
   // Apply filters when tasks or filter changes
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, currentFilter, myMembershipId]);
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
 
-      // Load groups to get the first group
+      // 1. Load all groups
       const groupsResponse =
         await apiService.get<GetGroupsResponse>('/api/groups');
 
       if (groupsResponse.success && groupsResponse.data.length > 0) {
-        const firstGroup = groupsResponse.data[0];
+        const allGroups = groupsResponse.data;
+        setGroups(allGroups);
+
+        // 2. Store membership IDs for each group
+        const membershipMap = new Map<string, string>();
+        allGroups.forEach((item) => {
+          membershipMap.set(item.group.id, item.membership.id);
+        });
+        setMyMembershipIds(membershipMap);
+
+        // 3. Load saved filters
+        const savedFilters = await loadFilters();
+        if (savedFilters) {
+          setSelectedHouseholdFilter(savedFilters.selectedGroupId);
+          setCurrentFilter(savedFilters.statusFilter);
+        }
+
+        // 4. Initialize notifications (once with first group)
+        const firstGroup = allGroups[0];
         setSelectedGroupId(firstGroup.group.id);
         setMyMembershipId(firstGroup.membership.id);
 
-        // Initialize notifications if not already initialized
         if (!isInitialized) {
           const accessToken = await storage.getAccessToken();
           if (accessToken) {
@@ -89,8 +181,8 @@ const Home: React.FC = () => {
           }
         }
 
-        // Load tasks for this group
-        await loadTasks(firstGroup.group.id);
+        // 5. Load tasks from all households
+        await loadAllTasks(allGroups);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -100,32 +192,49 @@ const Home: React.FC = () => {
     }
   };
 
-  const loadTasks = async (groupId: string) => {
-    try {
-      const response = await taskService.getTasks(groupId, {
-        limit: 100,
-      });
+  const loadAllTasks = async (groupsList: GetGroupsResponse['data']) => {
+    const tasksByGroup = new Map<string, TaskWithDetails[]>();
 
+    // Load tasks for each group in parallel
+    await Promise.allSettled(
+      groupsList.map(async (item) => {
+        try {
+          const response = await taskService.getTasks(item.group.id, {
+            limit: 100,
+          });
+          if (response.success) {
+            tasksByGroup.set(item.group.id, response.tasks);
+          }
+        } catch (error) {
+          console.warn(`Failed to load tasks for ${item.group.name}:`, error);
+          // Continue with other households even if one fails
+        }
+      })
+    );
+
+    setAllTasks(tasksByGroup);
+  };
+
+  const loadTasksForHousehold = async (groupId: string) => {
+    try {
+      const response = await taskService.getTasks(groupId, { limit: 100 });
       if (response.success) {
-        // Sort by due date
-        const sortedTasks = response.tasks.sort((a, b) => {
-          if (!a.due_at) return 1;
-          if (!b.due_at) return -1;
-          return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+        setAllTasks((prev) => {
+          const updated = new Map(prev);
+          updated.set(groupId, response.tasks);
+          return updated;
         });
-        setTasks(sortedTasks);
       }
     } catch (error) {
-      console.error('Failed to load tasks:', error);
+      console.warn('Failed to reload tasks for household:', error);
     }
   };
 
   const onRefresh = useCallback(async () => {
-    if (!selectedGroupId) return;
     setRefreshing(true);
-    await loadTasks(selectedGroupId);
+    await loadAllTasks(groups);
     setRefreshing(false);
-  }, [selectedGroupId]);
+  }, [groups]);
 
   const applyFilters = () => {
     let filtered = [...tasks];
@@ -133,7 +242,10 @@ const Home: React.FC = () => {
     switch (currentFilter) {
       case 'mine':
         filtered = filtered.filter((task) =>
-          task.assignments?.some((a) => a.membership_id === myMembershipId)
+          task.assignments?.some((a) => {
+            const relevantMembershipId = myMembershipIds.get(task.group_id);
+            return a.membership_id === relevantMembershipId;
+          })
         );
         break;
       case 'open':
@@ -176,7 +288,9 @@ const Home: React.FC = () => {
         });
       }
 
-      await loadTasks(selectedGroupId);
+      if (selectedGroupId) {
+        await loadTasksForHousehold(selectedGroupId);
+      }
 
       const statusLabels: Record<TaskStatus, string> = {
         open: 'À faire',
@@ -224,8 +338,10 @@ const Home: React.FC = () => {
               );
 
               if (response.success) {
-                // Reload tasks
-                await loadTasks(selectedGroupId);
+                // Reload tasks for this household
+                if (selectedGroupId) {
+                  await loadTasksForHousehold(selectedGroupId);
+                }
                 Alert.alert('Succès', 'Tâche supprimée avec succès !');
               }
             } catch (error) {
@@ -263,7 +379,9 @@ const Home: React.FC = () => {
       const response = await taskService.completeTask(selectedGroupId, task.id);
 
       if (response.success) {
-        await loadTasks(selectedGroupId);
+        if (selectedGroupId) {
+          await loadTasksForHousehold(selectedGroupId);
+        }
         Alert.alert('Succès', 'Tâche marquée comme terminée !');
       }
     } catch (error) {
@@ -420,7 +538,41 @@ const Home: React.FC = () => {
       marginTop: 6,
       textAlign: 'center',
     },
-    filtersContainer: {
+    householdSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 15,
+      paddingBottom: 10,
+    },
+    householdLabel: {
+      color: theme.colors.text,
+      fontWeight: 'bold',
+      marginRight: 10,
+      fontSize: 14,
+    },
+    householdChip: {
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    householdChipActive: {
+      backgroundColor: theme.colors.success,
+      borderColor: theme.colors.success,
+    },
+    householdChipText: {
+      color: theme.colors.text,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    householdChipTextActive: {
+      color: '#FFF',
+    },
+    filtersScrollContainer: {
       flexDirection: 'row',
       paddingHorizontal: 20,
       marginBottom: 15,
@@ -655,6 +807,55 @@ const Home: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* SÉLECTEUR DE FOYER */}
+        {groups.length > 1 && (
+          <View style={styles.householdSelector}>
+            <Text style={styles.householdLabel}>Foyer :</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[
+                  styles.householdChip,
+                  selectedHouseholdFilter === 'all' &&
+                    styles.householdChipActive,
+                ]}
+                onPress={() => setSelectedHouseholdFilter('all')}
+              >
+                <Text
+                  style={[
+                    styles.householdChipText,
+                    selectedHouseholdFilter === 'all' &&
+                      styles.householdChipTextActive,
+                  ]}
+                >
+                  Tous les foyers
+                </Text>
+              </TouchableOpacity>
+
+              {groups.map((item) => (
+                <TouchableOpacity
+                  key={item.group.id}
+                  style={[
+                    styles.householdChip,
+                    selectedHouseholdFilter === item.group.id &&
+                      styles.householdChipActive,
+                  ]}
+                  onPress={() => setSelectedHouseholdFilter(item.group.id)}
+                >
+                  <Text
+                    style={[
+                      styles.householdChipText,
+                      selectedHouseholdFilter === item.group.id &&
+                        styles.householdChipTextActive,
+                    ]}
+                  >
+                    {item.group.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* STATS SECTION */}
         <View style={styles.stats}>
           <View style={styles.card}>
@@ -680,7 +881,11 @@ const Home: React.FC = () => {
         </View>
 
         {/* FILTERS */}
-        <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersScrollContainer}
+        >
           <TouchableOpacity
             style={[
               styles.filterButton,
@@ -748,7 +953,7 @@ const Home: React.FC = () => {
               Terminées ({doneCount})
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* TÂCHES */}
         <Text style={styles.sectionTitle}>

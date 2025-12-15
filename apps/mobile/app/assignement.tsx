@@ -52,7 +52,9 @@ const Assignement = () => {
   const route = useRoute<RouteProp<RouteParams, 'assignement'>>();
   const initialPage = route.params?.page ?? 0;
   const [activePage, setActivePage] = useState(initialPage);
-
+  const isTaskValid =
+    taskName.trim().length > 0 && selectedMembers.length > 0 && !loading;
+  const [touched, setTouched] = useState(false);
   const dateSelected = route.params?.selectedDate;
 
   const [taskDate] = useState(
@@ -80,8 +82,6 @@ const Assignement = () => {
       setTasks([]);
       return;
     }
-
-    console.log('My membership ID:', myMembership.id);
 
     const mine = rawTasks.filter((task) =>
       task.assignments?.some((a) => a.membership_id === myMembership.id)
@@ -181,10 +181,7 @@ const Assignement = () => {
   };
 
   const handleAddTask = async () => {
-    if (!taskName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer le nom de la tâche.');
-      return;
-    }
+    if (!isTaskValid) return;
 
     if (!selectedGroupId) {
       Alert.alert('Erreur', 'Aucun foyer sélectionné');
@@ -209,6 +206,7 @@ const Assignement = () => {
         setTaskName('');
         setTaskDescription('');
         setSelectedMembers([]);
+        setTouched(false);
 
         await loadMembers();
         await loadRawTasks();
@@ -218,9 +216,7 @@ const Assignement = () => {
       }
     } catch (error: unknown) {
       console.error('Failed to create task:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Impossible de créer la tâche';
-      Alert.alert('Erreur', errorMessage);
+      Alert.alert('Erreur', 'Impossible de créer la tâche');
     } finally {
       setLoading(false);
     }
@@ -452,6 +448,14 @@ const Assignement = () => {
       color: theme.colors.textSecondary,
       marginTop: 4,
     },
+
+    errorText: {
+      fontSize: 12,
+      color: theme.colors.error ?? '#E53935',
+      marginTop: 4,
+      marginBottom: 8,
+      alignSelf: 'flex-start',
+    },
   });
 
   return (
@@ -566,16 +570,33 @@ const Assignement = () => {
                     <Text style={styles.message}>{page.text}</Text>
 
                     <TextInput
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        touched &&
+                          taskName.trim().length === 0 && {
+                            borderColor: theme.colors.error ?? '#E53935',
+                          },
+                      ]}
                       placeholder="Nom de la tâche *"
+                      placeholderTextColor={theme.colors.placeholder}
                       value={taskName}
-                      onChangeText={setTaskName}
+                      onChangeText={(text) => {
+                        setTouched(true);
+                        setTaskName(text);
+                      }}
                       editable={!loading}
                     />
+
+                    {touched && taskName.trim().length === 0 && (
+                      <Text style={styles.errorText}>
+                        Le nom de la tâche est obligatoire
+                      </Text>
+                    )}
 
                     <TextInput
                       style={styles.input}
                       placeholder="Description de la tâche ..."
+                      placeholderTextColor={theme.colors.placeholder}
                       value={taskDescription}
                       onChangeText={setTaskDescription}
                       multiline
@@ -600,7 +621,10 @@ const Assignement = () => {
                                 styles.chip,
                                 selected && styles.chipSelected,
                               ]}
-                              onPress={() => toggleMember(m.id)}
+                              onPress={() => {
+                                setTouched(true);
+                                toggleMember(m.id);
+                              }}
                             >
                               <Text
                                 style={[
@@ -616,6 +640,12 @@ const Assignement = () => {
                       )}
                     </View>
 
+                    {touched && selectedMembers.length === 0 && (
+                      <Text style={styles.errorText}>
+                        Veuillez assigner la tâche à au moins une personne
+                      </Text>
+                    )}
+
                     <TextInput
                       style={styles.input}
                       value={taskDate}
@@ -623,9 +653,12 @@ const Assignement = () => {
                     />
 
                     <TouchableOpacity
-                      style={styles.buttonAdd}
+                      style={[
+                        styles.buttonAdd,
+                        !isTaskValid && { opacity: 0.5 },
+                      ]}
                       onPress={handleAddTask}
-                      disabled={loading}
+                      disabled={!isTaskValid}
                     >
                       {loading ? (
                         <ActivityIndicator color="#fff" />

@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,8 +12,13 @@ import {
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 
+import type { GetGroupsResponse } from '@/types/group';
+import type { TaskWithDetails } from '@/types/task';
+
 import Navbar from '@/components/navbar';
 import { useTheme } from '@/contexts/ThemeContext';
+import { apiService } from '@/services/api.service';
+import { taskService } from '@/services/task.service';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +32,12 @@ const MyCalendar: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const { theme } = useTheme();
 
+  // ✅ tâches assignées à moi (tous groupes confondus)
+  const [myTasks, setMyTasks] = useState<TaskWithDetails[]>([]);
+  const [markedTaskDates, setMarkedTaskDates] = useState<Record<string, any>>(
+    {}
+  );
+
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const handleDayPress = (day: { dateString: string }) => {
@@ -39,7 +50,92 @@ const MyCalendar: React.FC = () => {
     navigation.navigate('assignement', { page: 1, selectedDate });
   };
 
-  // Dynamic styles based on theme
+  // ✅ Charger les tâches "à moi" pour TOUS les groupes
+  useEffect(() => {
+    const loadMyAssignedTasks = async () => {
+      try {
+        const groupsRes =
+          await apiService.get<GetGroupsResponse>('/api/groups');
+
+        if (!groupsRes.success) return;
+
+        const allMine: TaskWithDetails[] = [];
+
+        for (const item of groupsRes.data) {
+          const groupId = item.group.id;
+          const myMembershipId = item.membership.id;
+
+          const tasksRes = await taskService.getTasks(groupId, {
+            status: 'open',
+            limit: 100,
+          });
+
+          if (!tasksRes.success) continue;
+
+          const mine = tasksRes.tasks.filter((task) =>
+            task.assignments?.some((a) => a.membership_id === myMembershipId)
+          );
+
+          allMine.push(...mine);
+        }
+
+        setMyTasks(allMine);
+      } catch (e) {
+        console.error('Failed to load calendar tasks', e);
+      }
+    };
+
+    loadMyAssignedTasks();
+  }, []);
+
+  // ✅ Construire les dates à marquer
+  useEffect(() => {
+    const marked: Record<string, any> = {};
+
+    for (const task of myTasks) {
+      if (!task.due_at) continue;
+
+      const date = task.due_at.split('T')[0];
+
+      marked[date] = {
+        customStyles: {
+          container: {
+            backgroundColor: `${theme.colors.primary}25`, // 🟦 fond léger
+            borderRadius: 8,
+          },
+          text: {
+            color: theme.colors.text,
+            fontWeight: 'bold',
+          },
+        },
+        marked: true,
+        dotColor: theme.colors.primary, // 🔵 point conservé
+      };
+    }
+
+    setMarkedTaskDates(marked);
+  }, [myTasks, theme.colors.primary, theme.colors.text]);
+
+  // ✅ Fusion : points + sélection du jour
+  const markedDates = useMemo(() => {
+    return {
+      ...markedTaskDates,
+      ...(selectedDate && {
+        [selectedDate]: {
+          ...(markedTaskDates[selectedDate] || {}),
+          selected: true,
+          selectedColor: theme.colors.primary,
+        },
+      }),
+    };
+  }, [markedTaskDates, selectedDate, theme.colors.primary]);
+
+  // (optionnel) compteur dans le modal
+  const tasksForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return myTasks.filter((t) => t.due_at?.startsWith(selectedDate));
+  }, [myTasks, selectedDate]);
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -69,11 +165,12 @@ const MyCalendar: React.FC = () => {
       fontSize: 16,
       marginBottom: 10,
       color: theme.colors.textSecondary,
+      textAlign: 'center',
     },
     modalDate: {
       fontSize: 20,
       fontWeight: 'bold',
-      marginBottom: 20,
+      marginBottom: 12,
       color: theme.colors.text,
     },
   });
@@ -83,12 +180,8 @@ const MyCalendar: React.FC = () => {
       <View style={styles.calendarWrapper}>
         <Calendar
           onDayPress={handleDayPress}
-          markedDates={{
-            [selectedDate]: {
-              selected: true,
-              selectedColor: theme.colors.primary,
-            },
-          }}
+          markedDates={markedDates}
+          markingType="custom"
           theme={{
             backgroundColor: theme.colors.surface,
             calendarBackground: theme.colors.surface,
@@ -111,14 +204,18 @@ const MyCalendar: React.FC = () => {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        {/* Overlay qui capte les touches */}
         <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
-            {/* Fenêtre interne qui n'est pas cliquable pour fermer */}
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
                 <Text style={styles.modalDate}>{selectedDate}</Text>
-                <Text style={styles.modalText}>Aucune tâche de prévue ...</Text>
+
+                <Text style={styles.modalText}>
+                  {tasksForSelectedDate.length === 0
+                    ? 'Aucune tâche prévue'
+                    : `${tasksForSelectedDate.length} tâche(s) à faire`}
+                </Text>
+
                 <TouchableOpacity onPress={handleAddPress}>
                   <MaterialIcons
                     name="add-circle"

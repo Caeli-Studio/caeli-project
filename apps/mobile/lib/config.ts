@@ -11,6 +11,7 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
+
 /**
  * IMPORTANT: Network Configuration
  *
@@ -26,8 +27,9 @@ export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '192.168.0.9';
+const LOCAL_IP_ADDRESS = '192.168.129.52';
 const BACKEND_PORT = '3000';
+
 /**
  * Get the local development URL based on platform
  */

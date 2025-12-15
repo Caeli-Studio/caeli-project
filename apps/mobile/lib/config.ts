@@ -6,6 +6,11 @@ import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
+// Supabase configuration
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
+
 /**
  * IMPORTANT: Network Configuration
  *
@@ -21,9 +26,9 @@ import { Platform } from 'react-native';
  */
 
 // Update this if testing on a physical device
-const LOCAL_IP_ADDRESS = '192.168.0.9';
+const LOCAL_IP_ADDRESS = '192.168.129.52';
 const BACKEND_PORT = '3000';
-export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
+
 /**
  * Get the local development URL based on platform
  */

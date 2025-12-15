@@ -35,7 +35,7 @@ type RouteParams = {
 const Assignement = () => {
   const router = useRouter();
   const { theme } = useTheme();
-  const [activePage, setActivePage] = useState(0);
+
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,11 @@ const Assignement = () => {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
+
   const route = useRoute<RouteProp<RouteParams, 'assignement'>>();
+  const initialPage = route.params?.page ?? 0;
+  const [activePage, setActivePage] = useState(initialPage);
+
   const dateSelected = route.params?.selectedDate;
 
   const [taskDate] = useState(
@@ -85,6 +89,17 @@ const Assignement = () => {
 
     setTasks(mine);
   }, [members, rawTasks]);
+
+  useEffect(() => {
+    if (initialPage === 1) {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          x: width * 0.8 * initialPage,
+          animated: false,
+        });
+      });
+    }
+  }, [initialPage]);
 
   const loadGroups = async () => {
     try {

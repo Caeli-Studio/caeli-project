@@ -30,8 +30,10 @@ import { taskService } from '@/services/task.service';
 
 type FilterType = 'all' | 'mine' | 'open' | 'done';
 
+const WHITE_COLOR = '#FFFFFF';
+
 const Home: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { theme } = useTheme();
   const { initializeNotifications, isInitialized } = useNotifications();
   const router = useRouter();
@@ -41,7 +43,6 @@ const Home: React.FC = () => {
   const [filteredTasks, setFilteredTasks] = useState<TaskWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [myMembershipId, setMyMembershipId] = useState<string | null>(null);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
@@ -161,7 +162,6 @@ const Home: React.FC = () => {
 
         // 4. Initialize notifications (once with first group)
         const firstGroup = allGroups[0];
-        setSelectedGroupId(firstGroup.group.id);
         setMyMembershipId(firstGroup.membership.id);
 
         if (!isInitialized) {
@@ -169,7 +169,7 @@ const Home: React.FC = () => {
           if (accessToken) {
             // 🔧 TEMP FIX: Clear old notification preferences to use defaults (enabled: true)
             await AsyncStorage.removeItem('@notification_preferences');
-            console.log(
+            console.warn(
               '🔄 Cleared old notification preferences, using defaults'
             );
 
@@ -177,7 +177,7 @@ const Home: React.FC = () => {
               firstGroup.membership.id,
               accessToken
             );
-            console.log('✅ Notifications initialized from home.tsx');
+            console.warn('✅ Notifications initialized from home.tsx');
           }
         }
 
@@ -273,24 +273,22 @@ const Home: React.FC = () => {
   };
 
   const changeTaskStatus = async (newStatus: TaskStatus) => {
-    if (!selectedGroupId || !selectedTask) return;
+    if (!selectedTask) return;
 
     try {
       closeStatusModal();
 
       if (newStatus === 'done') {
         // ✅ TERMINER UNE TÂCHE
-        await taskService.completeTask(selectedGroupId, selectedTask.id);
+        await taskService.completeTask(selectedTask.group_id, selectedTask.id);
       } else {
         // ✅ AUTRES STATUTS
-        await taskService.updateTask(selectedGroupId, selectedTask.id, {
+        await taskService.updateTask(selectedTask.group_id, selectedTask.id, {
           status: newStatus,
         });
       }
 
-      if (selectedGroupId) {
-        await loadTasksForHousehold(selectedGroupId);
-      }
+      await loadTasksForHousehold(selectedTask.group_id);
 
       const statusLabels: Record<TaskStatus, string> = {
         open: 'À faire',
@@ -314,7 +312,7 @@ const Home: React.FC = () => {
   };
 
   const deleteTask = async () => {
-    if (!selectedGroupId || !selectedTask) return;
+    if (!selectedTask) return;
 
     // Show confirmation dialog
     Alert.alert(
@@ -333,15 +331,13 @@ const Home: React.FC = () => {
               closeStatusModal();
 
               const response = await taskService.deleteTask(
-                selectedGroupId,
+                selectedTask.group_id,
                 selectedTask.id
               );
 
               if (response.success) {
                 // Reload tasks for this household
-                if (selectedGroupId) {
-                  await loadTasksForHousehold(selectedGroupId);
-                }
+                await loadTasksForHousehold(selectedTask.group_id);
                 Alert.alert('Succès', 'Tâche supprimée avec succès !');
               }
             } catch (error) {
@@ -359,13 +355,11 @@ const Home: React.FC = () => {
   };
 
   const toggleTaskComplete = async (task: TaskWithDetails) => {
-    if (!selectedGroupId) return;
-
     // ⛔ PROTECTION FRONTEND
     if (!task.can_complete) {
       Alert.alert(
         'Action impossible',
-        'Cette tâche est assignée à quelqu’un d’autre'
+        "Cette tâche est assignée à quelqu'un d'autre"
       );
       return;
     }
@@ -376,12 +370,10 @@ const Home: React.FC = () => {
         return;
       }
 
-      const response = await taskService.completeTask(selectedGroupId, task.id);
+      const response = await taskService.completeTask(task.group_id, task.id);
 
       if (response.success) {
-        if (selectedGroupId) {
-          await loadTasksForHousehold(selectedGroupId);
-        }
+        await loadTasksForHousehold(task.group_id);
         Alert.alert('Succès', 'Tâche marquée comme terminée !');
       }
     } catch (error) {
@@ -426,10 +418,6 @@ const Home: React.FC = () => {
     month: 'long',
     day: 'numeric',
   });
-
-  const greeting = user?.name
-    ? `Bonjour ${user.name.split(' ')[0]} 👋`
-    : 'Bonjour 👋';
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -492,11 +480,6 @@ const Home: React.FC = () => {
     date: {
       fontSize: 14,
       color: theme.colors.textSecondary,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: theme.colors.text,
     },
     stats: {
       flexDirection: 'row',
@@ -570,33 +553,32 @@ const Home: React.FC = () => {
       fontSize: 13,
     },
     householdChipTextActive: {
-      color: '#FFF',
+      color: WHITE_COLOR,
     },
     filtersScrollContainer: {
-      flexDirection: 'row',
       paddingHorizontal: 20,
       marginBottom: 15,
-      gap: 10,
     },
     filterButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 20,
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      borderRadius: 22,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
+      marginRight: 10,
     },
     filterButtonActive: {
       backgroundColor: theme.colors.success,
       borderColor: theme.colors.success,
     },
     filterText: {
-      fontSize: 12,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       fontWeight: '600',
     },
     filterTextActive: {
-      color: '#fff',
+      color: WHITE_COLOR,
     },
     sectionTitle: {
       marginHorizontal: 20,
@@ -661,7 +643,7 @@ const Home: React.FC = () => {
       borderRadius: 12,
     },
     statusText: {
-      color: '#fff',
+      color: WHITE_COLOR,
       fontSize: 11,
       fontWeight: '600',
     },
@@ -774,6 +756,9 @@ const Home: React.FC = () => {
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
+    taskListContainer: {
+      paddingBottom: 100,
+    },
   });
 
   if (loading) {
@@ -796,7 +781,6 @@ const Home: React.FC = () => {
             <Text style={styles.date}>
               {today.charAt(0).toUpperCase() + today.slice(1)}
             </Text>
-            <Text style={styles.title}>{greeting}</Text>
           </View>
           <TouchableOpacity onPress={handleSignOut}>
             <Ionicons
@@ -881,79 +865,81 @@ const Home: React.FC = () => {
         </View>
 
         {/* FILTERS */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersScrollContainer}
-        >
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              currentFilter === 'all' && styles.filterButtonActive,
-            ]}
-            onPress={() => setCurrentFilter('all')}
-          >
-            <Text
+        <View style={styles.filtersScrollContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TouchableOpacity
               style={[
-                styles.filterText,
-                currentFilter === 'all' && styles.filterTextActive,
+                styles.filterButton,
+                currentFilter === 'all' && styles.filterButtonActive,
               ]}
+              onPress={() => setCurrentFilter('all')}
             >
-              Toutes ({allCount})
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterText,
+                  currentFilter === 'all' && styles.filterTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Toutes ({allCount})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              currentFilter === 'mine' && styles.filterButtonActive,
-            ]}
-            onPress={() => setCurrentFilter('mine')}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.filterText,
-                currentFilter === 'mine' && styles.filterTextActive,
+                styles.filterButton,
+                currentFilter === 'mine' && styles.filterButtonActive,
               ]}
+              onPress={() => setCurrentFilter('mine')}
             >
-              Mes tâches ({mineCount})
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterText,
+                  currentFilter === 'mine' && styles.filterTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Mes tâches ({mineCount})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              currentFilter === 'open' && styles.filterButtonActive,
-            ]}
-            onPress={() => setCurrentFilter('open')}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.filterText,
-                currentFilter === 'open' && styles.filterTextActive,
+                styles.filterButton,
+                currentFilter === 'open' && styles.filterButtonActive,
               ]}
+              onPress={() => setCurrentFilter('open')}
             >
-              À faire ({openCount})
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterText,
+                  currentFilter === 'open' && styles.filterTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                À faire ({openCount})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              currentFilter === 'done' && styles.filterButtonActive,
-            ]}
-            onPress={() => setCurrentFilter('done')}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.filterText,
-                currentFilter === 'done' && styles.filterTextActive,
+                styles.filterButton,
+                currentFilter === 'done' && styles.filterButtonActive,
               ]}
+              onPress={() => setCurrentFilter('done')}
             >
-              Terminées ({doneCount})
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+              <Text
+                style={[
+                  styles.filterText,
+                  currentFilter === 'done' && styles.filterTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Terminées ({doneCount})
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
 
         {/* TÂCHES */}
         <Text style={styles.sectionTitle}>
@@ -1029,7 +1015,7 @@ const Home: React.FC = () => {
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={styles.taskListContainer}
           />
         ) : (
           <View style={styles.empty}>

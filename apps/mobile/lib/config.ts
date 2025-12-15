@@ -8,7 +8,8 @@ import { Platform } from 'react-native';
 
 // Supabase configuration
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+export const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 export const EXPO_PROJECT_ID = process.env.EXPO_PUBLIC_PROJECT_ID || '';
 
 /**

@@ -336,6 +336,7 @@ export interface TaskResponse extends Task {
   template?: TaskTemplate;
   can_complete?: boolean;
   can_transfer?: boolean;
+  can_delete?: boolean;
 }
 
 // Task Transfer
@@ -388,10 +389,8 @@ export interface ConnectCalendarRequest {
   authorization_code: string;
 }
 
-export interface CalendarConnectionResponse extends Omit<
-  CalendarConnection,
-  'access_token' | 'refresh_token'
-> {
+export interface CalendarConnectionResponse
+  extends Omit<CalendarConnection, 'access_token' | 'refresh_token'> {
   is_active: boolean;
 }
 

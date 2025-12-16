@@ -446,10 +446,21 @@ const Home: React.FC = () => {
               }
             } catch (error) {
               console.error('Failed to delete task:', error);
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : 'Impossible de supprimer la tâche';
+
+              // Extract error message from API response
+              let errorMessage = 'Impossible de supprimer la tâche';
+              if (error && typeof error === 'object' && 'response' in error) {
+                const response = (error as any).response;
+                if (response?.data?.message) {
+                  errorMessage = response.data.message;
+                } else if (response?.status === 403) {
+                  errorMessage =
+                    "Vous n'avez pas la permission de supprimer cette tâche";
+                }
+              } else if (error instanceof Error) {
+                errorMessage = error.message;
+              }
+
               Alert.alert('Erreur', errorMessage);
             }
           },
@@ -539,10 +550,21 @@ const Home: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to complete task:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Impossible de terminer la tâche';
+
+      // Extract error message from API response
+      let errorMessage = 'Impossible de terminer la tâche';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as any).response;
+        if (response?.data?.message) {
+          errorMessage = response.data.message;
+        } else if (response?.status === 403) {
+          errorMessage =
+            'Vous devez être assigné à cette tâche pour la compléter';
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       Alert.alert('Erreur', errorMessage);
     }
   };
@@ -570,9 +592,13 @@ const Home: React.FC = () => {
   const visibleTasks = tasks.filter((task) => !shouldHideCompletedTask(task));
 
   const allCount = visibleTasks.length;
-  const mineCount = visibleTasks.filter((task) =>
-    task.assignments?.some((a) => a.membership_id === myMembershipId)
-  ).length;
+  const mineCount = visibleTasks.filter((task) => {
+    if (task.status !== 'open') return false;
+    const relevantMembershipId = myMembershipIds.get(task.group_id);
+    return task.assignments?.some(
+      (a) => a.membership_id === relevantMembershipId
+    );
+  }).length;
   const openCount = visibleTasks.filter((t) => t.status === 'open').length;
   const doneCount = visibleTasks.filter((t) => t.status === 'done').length;
 
@@ -1207,9 +1233,10 @@ const Home: React.FC = () => {
 
               return (
                 <TouchableOpacity
-                  disabled={!item.can_complete}
-                  onPress={() => toggleTaskComplete(item)}
-                  onLongPress={() => item.can_complete && openStatusModal(item)}
+                  onPress={() => openStatusModal(item)}
+                  onLongPress={() =>
+                    item.can_complete ? toggleTaskComplete(item) : undefined
+                  }
                   style={[
                     styles.task,
                     item.status === 'done' && styles.taskDone,
@@ -1259,12 +1286,6 @@ const Home: React.FC = () => {
                               .join(', ')}
                           </Text>
                         )}
-
-                      {!item.can_complete && (
-                        <Text style={styles.taskAssigned}>
-                          🔒 Assignée à un autre membre
-                        </Text>
-                      )}
                     </View>
                   </View>
 

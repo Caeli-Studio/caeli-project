@@ -259,7 +259,19 @@ const Assignement = () => {
       }
     } catch (error: unknown) {
       console.error('Failed to create task:', error);
-      Alert.alert('Erreur', 'Impossible de créer la tâche');
+
+      // Extract error message from API response
+      let errorMessage = 'Impossible de créer la tâche';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as any).response;
+        if (response?.data?.message) {
+          errorMessage = response.data.message;
+        } else if (response?.status === 403) {
+          errorMessage = "Vous n'avez pas la permission de créer des tâches";
+        }
+      }
+
+      Alert.alert('Erreur', errorMessage);
     } finally {
       setLoading(false);
     }

@@ -199,8 +199,11 @@ export default function HouseholdDetailsScreen() {
       lines.push('• Aucune permission spécifique');
     } else {
       const enabledPermissions = Object.entries(role.permissions)
-        .filter(([_, value]) => value === true)
-        .map(([key]) => PERMISSION_LABELS[key as keyof Permission] || key);
+        .filter(([key, value]) => {
+          // Only show permissions that are enabled AND exist in PERMISSION_LABELS
+          return value === true && key in PERMISSION_LABELS;
+        })
+        .map(([key]) => PERMISSION_LABELS[key as keyof Permission]);
 
       if (enabledPermissions.length === 0) {
         lines.push('• Aucune permission spécifique');

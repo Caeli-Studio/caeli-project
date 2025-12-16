@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { DEFAULT_PERMISSIONS } from '../types/database';
 
 import type { Membership, Permission } from '../types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Hash a PIN code for secure storage
@@ -81,6 +82,97 @@ export function hasPermission(
 ): boolean {
   const permissions = getMembershipPermissions(membership);
   return permissions[permission] === true;
+}
+
+/**
+ * Resolve effective permissions for a membership, optionally fetching
+ * role permissions from `group_roles` when `membership.role_id` is present.
+ */
+export async function resolveMembershipPermissions(
+  membership: Membership,
+  supabaseClient?: SupabaseClient
+): Promise<Permission> {
+  // Start from default based on role_name
+  let resolved: Record<string, boolean> = {
+    ...(DEFAULT_PERMISSIONS[membership.role_name] || DEFAULT_PERMISSIONS.guest),
+  };
+
+  // If role_id is present and a Supabase client is provided, try to fetch
+  // the role's permissions JSON and use it as base.
+  if (membership.role_id && supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('group_roles')
+        .select('permissions')
+        .eq('id', membership.role_id)
+        .single();
+
+      if (!error && data?.permissions) {
+        resolved = {
+          ...resolved,
+          ...(data.permissions as Record<string, boolean>),
+        };
+      }
+    } catch {
+      // Log silently at caller level; fall back to defaults
+    }
+  }
+
+  // Apply custom_permissions overrides from membership
+  const merged: Record<string, boolean> = { ...resolved };
+  if (membership.custom_permissions) {
+    Object.keys(membership.custom_permissions).forEach((key) => {
+      // Only override boolean flags
+      const val = membership.custom_permissions[key];
+      if (typeof val === 'boolean') merged[key] = val;
+    });
+  }
+
+  // Ensure shape matches Permission interface - use merged directly
+  const finalPerms: Permission = {
+    can_create_tasks: !!merged['can_create_tasks'],
+    can_assign_tasks: !!merged['can_assign_tasks'],
+    can_delete_tasks: !!merged['can_delete_tasks'],
+    can_manage_members: !!merged['can_manage_members'],
+    can_edit_group: !!merged['can_edit_group'],
+    can_manage_roles: !!merged['can_manage_roles'],
+  };
+
+  return finalPerms;
+}
+
+/**
+ * Async permission check that supports fetching role permissions when needed.
+ * Accepts either permission keys like 'can_create_tasks' or policy-style
+ * aliases like 'create_tasks'.
+ */
+export async function hasPermissionAsync(
+  membership: Membership,
+  permission: string,
+  supabaseClient?: SupabaseClient
+): Promise<boolean> {
+  const aliasMap: Record<string, string> = {
+    create_tasks: 'can_create_tasks',
+    assign_tasks: 'can_assign_tasks',
+    delete_tasks: 'can_delete_tasks',
+    manage_members: 'can_manage_members',
+    edit_group: 'can_edit_group',
+    manage_roles: 'can_manage_roles',
+    view_audit: 'can_view_audit',
+    connect_calendar: 'can_connect_calendar',
+    manage_hub: 'can_manage_hub',
+  };
+
+  const key = (aliasMap[permission] || permission) as keyof Permission | string;
+
+  const perms = await resolveMembershipPermissions(membership, supabaseClient);
+
+  // If key matches Permission keys, return boolean; otherwise false
+  if ((perms as any)[key] !== undefined) {
+    return !!(perms as any)[key];
+  }
+
+  return false;
 }
 
 /**

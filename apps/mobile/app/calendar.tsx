@@ -26,6 +26,7 @@ const { width } = Dimensions.get('window');
 type RootStackParamList = {
   assignement: { page?: number; selectedDate?: string };
   calendar: { page?: number };
+  home: { taskId?: string; groupId?: string };
 };
 
 const MyCalendar: React.FC = () => {
@@ -278,7 +279,17 @@ const MyCalendar: React.FC = () => {
                     showsVerticalScrollIndicator={false}
                   >
                     {tasksForSelectedDate.map((task) => (
-                      <View key={task.id} style={styles.taskItem}>
+                      <TouchableOpacity
+                        key={task.id}
+                        style={styles.taskItem}
+                        onPress={() => {
+                          setModalVisible(false);
+                          navigation.navigate('home', {
+                            taskId: task.id,
+                            groupId: task.group_id,
+                          });
+                        }}
+                      >
                         <Text style={styles.taskTitle}>{task.title}</Text>
 
                         {task.description && (
@@ -286,7 +297,7 @@ const MyCalendar: React.FC = () => {
                             {task.description}
                           </Text>
                         )}
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}

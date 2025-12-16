@@ -114,6 +114,12 @@ const Assignement = () => {
     }
   };
 
+  const formatDateFR = (dateString: string) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    return `${day}-${month}-${year.slice(2)}`;
+  };
+
   const loadMembers = async () => {
     if (!selectedGroupId) return;
 
@@ -648,7 +654,7 @@ const Assignement = () => {
 
                     <TextInput
                       style={styles.input}
-                      value={taskDate}
+                      value={formatDateFR(taskDate)}
                       editable={false}
                     />
 

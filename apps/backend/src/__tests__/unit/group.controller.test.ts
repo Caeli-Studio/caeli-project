@@ -36,12 +36,33 @@ describe('Group Controller - Unit Tests', () => {
         importance: 100,
       };
 
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.insert.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
-      mockSupabase.single
-        .mockResolvedValueOnce({ data: mockGroup, error: null })
-        .mockResolvedValueOnce({ data: mockMembership, error: null });
+      // Mock group creation
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.insert.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: mockGroup,
+        error: null,
+      });
+
+      // Mock getRoleByName (group_roles lookup)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 'role-id-owner', name: 'owner', importance: 100 },
+        error: null,
+      });
+
+      // Mock membership creation
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.insert.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: mockMembership,
+        error: null,
+      });
 
       const mockRequest = {
         jwtVerify: vi.fn().mockResolvedValue(undefined),
@@ -60,8 +81,9 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } =
-        await import('../../controllers/group.controller');
+      const { createGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(201);
@@ -90,8 +112,9 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } =
-        await import('../../controllers/group.controller');
+      const { createGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(401);
@@ -108,17 +131,38 @@ describe('Group Controller - Unit Tests', () => {
         type: 'family',
       };
 
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.insert.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
-      mockSupabase.delete = vi.fn().mockReturnValue(mockSupabase);
+      // Mock group creation
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.insert.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: mockGroup,
+        error: null,
+      });
+
+      // Mock getRoleByName (group_roles lookup)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 'role-id-owner', name: 'owner', importance: 100 },
+        error: null,
+      });
+
+      // Mock membership creation (should fail)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.insert.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Membership creation failed' },
+      });
+
+      // Mock group deletion (rollback)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.delete = vi.fn().mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockResolvedValueOnce({ data: null, error: null } as any);
-      mockSupabase.single
-        .mockResolvedValueOnce({ data: mockGroup, error: null })
-        .mockResolvedValueOnce({
-          data: null,
-          error: { message: 'Membership creation failed' },
-        });
 
       const mockRequest = {
         jwtVerify: vi.fn().mockResolvedValue(undefined),
@@ -136,8 +180,9 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } =
-        await import('../../controllers/group.controller');
+      const { createGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -169,8 +214,9 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { createGroup } =
-        await import('../../controllers/group.controller');
+      const { createGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await createGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.status).toHaveBeenCalledWith(400);
@@ -233,8 +279,9 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { getMyGroups } =
-        await import('../../controllers/group.controller');
+      const { getMyGroups } = await import(
+        '../../controllers/group.controller'
+      );
       await getMyGroups(mockRequest as any, mockReply as any);
 
       const groupsData = memberships.map((membership) => ({
@@ -265,8 +312,9 @@ describe('Group Controller - Unit Tests', () => {
         send: vi.fn(),
       };
 
-      const { getMyGroups } =
-        await import('../../controllers/group.controller');
+      const { getMyGroups } = await import(
+        '../../controllers/group.controller'
+      );
       await getMyGroups(mockRequest as any, mockReply as any);
 
       // jwtVerify can throw (500) or return 401 depending on implementation
@@ -283,13 +331,34 @@ describe('Group Controller - Unit Tests', () => {
         created_at: new Date().toISOString(),
       };
 
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
-      mockSupabase.eq.mockReturnValue(mockSupabase);
+      const mockMembers = [
+        {
+          id: 'membership-1',
+          group_id: mockGroupId,
+          user_id: mockUserId,
+          role_name: 'owner',
+          importance: 100,
+        },
+      ];
+
+      // Mock group query
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.single.mockResolvedValueOnce({
         data: mockGroup,
         error: null,
       });
+
+      // Mock members query
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.is.mockReturnValueOnce(mockSupabase);
+      mockSupabase.order.mockResolvedValueOnce({
+        data: mockMembers,
+        error: null,
+      } as any);
 
       const mockRequest = {
         supabaseClient: mockSupabase,
@@ -318,9 +387,10 @@ describe('Group Controller - Unit Tests', () => {
     });
 
     it('should handle group not found', async () => {
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
-      mockSupabase.eq.mockReturnValue(mockSupabase);
+      // Mock group query returning not found
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
       mockSupabase.single.mockResolvedValueOnce({
         data: null,
         error: { message: 'Group not found' },
@@ -352,10 +422,11 @@ describe('Group Controller - Unit Tests', () => {
         type: 'family',
       };
 
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.update.mockReturnValue(mockSupabase);
-      mockSupabase.eq.mockReturnValue(mockSupabase);
-      mockSupabase.select.mockReturnValue(mockSupabase);
+      // Mock group update query
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.update.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
       mockSupabase.single.mockResolvedValueOnce({
         data: updatedGroup,
         error: null,
@@ -375,8 +446,9 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { updateGroup } =
-        await import('../../controllers/group.controller');
+      const { updateGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await updateGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({
@@ -388,8 +460,9 @@ describe('Group Controller - Unit Tests', () => {
 
   describe('DELETE /api/groups/:group_id', () => {
     it('should delete group successfully', async () => {
-      mockSupabase.from.mockReturnValue(mockSupabase);
-      mockSupabase.delete.mockReturnValue(mockSupabase);
+      // Mock group deletion
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.delete.mockReturnValueOnce(mockSupabase);
       mockSupabase.eq.mockResolvedValueOnce({ error: null } as any);
 
       const mockRequest = {
@@ -403,8 +476,9 @@ describe('Group Controller - Unit Tests', () => {
         status: vi.fn().mockReturnThis(),
       };
 
-      const { deleteGroup } =
-        await import('../../controllers/group.controller');
+      const { deleteGroup } = await import(
+        '../../controllers/group.controller'
+      );
       await deleteGroup(mockRequest as any, mockReply as any);
 
       expect(mockReply.send).toHaveBeenCalledWith({

@@ -253,8 +253,45 @@ const Home: React.FC = () => {
     setRefreshing(false);
   }, [groups]);
 
+  /**
+   * Détermine la date de complétion d'une tâche
+   * Retourne la date la plus récente parmi toutes les assignations complétées
+   */
+  const getTaskCompletionDate = (task: TaskWithDetails): Date | null => {
+    if (task.status !== 'done') return null;
+
+    const completionDates = task.assignments
+      ?.map((a) => a.completed_at)
+      .filter((d): d is string => d != null)
+      .map((d) => new Date(d));
+
+    if (!completionDates || completionDates.length === 0) return null;
+
+    return new Date(Math.max(...completionDates.map((d) => d.getTime())));
+  };
+
+  /**
+   * Vérifie si une tâche doit être masquée (terminée avant minuit aujourd'hui)
+   */
+  const shouldHideCompletedTask = (task: TaskWithDetails): boolean => {
+    if (task.status !== 'done') return false;
+
+    const completionDate = getTaskCompletionDate(task);
+    if (!completionDate) return false;
+
+    // Calculer minuit aujourd'hui (00:00:00)
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // Masquer si complété avant minuit aujourd'hui
+    return completionDate < todayMidnight;
+  };
+
   const applyFilters = () => {
     let filtered = [...tasks];
+
+    // ✅ Filtrer automatiquement les tâches terminées avant minuit
+    filtered = filtered.filter((task) => !shouldHideCompletedTask(task));
 
     switch (currentFilter) {
       case 'mine':
@@ -430,13 +467,16 @@ const Home: React.FC = () => {
   const done = filteredTasks.filter((t) => t.status === 'done').length;
   const open = filteredTasks.filter((t) => t.status === 'open').length;
   const progress = total === 0 ? 0 : (done / total) * 100;
-  // Counters by category
-  const allCount = tasks.length;
-  const mineCount = tasks.filter((task) =>
+
+  // Counters by category - Filtrer les tâches visibles (sans les masquées)
+  const visibleTasks = tasks.filter((task) => !shouldHideCompletedTask(task));
+
+  const allCount = visibleTasks.length;
+  const mineCount = visibleTasks.filter((task) =>
     task.assignments?.some((a) => a.membership_id === myMembershipId)
   ).length;
-  const openCount = tasks.filter((t) => t.status === 'open').length;
-  const doneCount = tasks.filter((t) => t.status === 'done').length;
+  const openCount = visibleTasks.filter((t) => t.status === 'open').length;
+  const doneCount = visibleTasks.filter((t) => t.status === 'done').length;
 
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -973,7 +1013,7 @@ const Home: React.FC = () => {
             : currentFilter === 'open'
               ? 'Tâches à faire'
               : currentFilter === 'done'
-                ? 'Tâches terminées'
+                ? "Tâches terminées aujourd'hui"
                 : 'Toutes les tâches'}
         </Text>
 

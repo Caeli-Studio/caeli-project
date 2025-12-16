@@ -275,6 +275,15 @@ const Home: React.FC = () => {
   const changeTaskStatus = async (newStatus: TaskStatus) => {
     if (!selectedTask) return;
 
+    // 🔒 PROTECTION FRONTEND
+    if (!selectedTask.can_complete) {
+      Alert.alert(
+        'Action impossible',
+        "Vous ne pouvez pas modifier une tâche assignée à quelqu'un d'autre."
+      );
+      return;
+    }
+
     try {
       closeStatusModal();
 
@@ -958,9 +967,14 @@ const Home: React.FC = () => {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity
+                disabled={!item.can_complete}
                 onPress={() => toggleTaskComplete(item)}
-                onLongPress={() => openStatusModal(item)}
-                style={[styles.task, item.status === 'done' && styles.taskDone]}
+                onLongPress={() => item.can_complete && openStatusModal(item)}
+                style={[
+                  styles.task,
+                  item.status === 'done' && styles.taskDone,
+                  !item.can_complete && { opacity: 0.5 },
+                ]}
               >
                 <View style={styles.taskLeft}>
                   <Ionicons
@@ -998,6 +1012,11 @@ const Home: React.FC = () => {
                             .join(', ')}
                         </Text>
                       )}
+                    {!item.can_complete && (
+                      <Text style={styles.taskAssigned}>
+                        🔒 Assignée à un autre membre
+                      </Text>
+                    )}
                   </View>
                 </View>
                 <View

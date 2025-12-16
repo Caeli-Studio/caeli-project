@@ -256,6 +256,9 @@ const Home: React.FC = () => {
   const applyFilters = () => {
     let filtered = [...tasks];
 
+    // ✅ Filtrer automatiquement les tâches terminées avant minuit
+    filtered = filtered.filter((task) => !shouldHideCompletedTask(task));
+
     switch (currentFilter) {
       case 'mine':
         filtered = filtered.filter((task) =>
@@ -452,6 +455,40 @@ const Home: React.FC = () => {
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  /**
+   * Détermine la date de complétion d'une tâche
+   * Retourne la date la plus récente parmi toutes les assignations complétées
+   */
+  const getTaskCompletionDate = (task: TaskWithDetails): Date | null => {
+    if (task.status !== 'done') return null;
+
+    const completionDates = task.assignments
+      ?.map((a) => a.completed_at)
+      .filter((d): d is string => d != null)
+      .map((d) => new Date(d));
+
+    if (!completionDates || completionDates.length === 0) return null;
+
+    return new Date(Math.max(...completionDates.map((d) => d.getTime())));
+  };
+
+  /**
+   * Vérifie si une tâche doit être masquée (terminée avant minuit aujourd'hui)
+   */
+  const shouldHideCompletedTask = (task: TaskWithDetails): boolean => {
+    if (task.status !== 'done') return false;
+
+    const completionDate = getTaskCompletionDate(task);
+    if (!completionDate) return false;
+
+    // Calculer minuit aujourd'hui (00:00:00)
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // Masquer si complété avant minuit aujourd'hui
+    return completionDate < todayMidnight;
   };
 
   const getStatusColor = (status: TaskStatus) => {
@@ -973,7 +1010,7 @@ const Home: React.FC = () => {
             : currentFilter === 'open'
               ? 'Tâches à faire'
               : currentFilter === 'done'
-                ? 'Tâches terminées'
+                ? "Tâches terminées aujourd'hui"
                 : 'Toutes les tâches'}
         </Text>
 

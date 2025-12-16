@@ -76,19 +76,33 @@ const Assignement = () => {
   useEffect(() => {
     if (members.length === 0 || rawTasks.length === 0) return;
 
-    const myMembership = members.find((m) => m.user?.id === user?.id);
+    const myMembership = members.find((m) => m.user_id === user?.id);
 
     if (!myMembership) {
+      console.log('No membership found for user:', user?.id);
       setTasks([]);
       return;
     }
 
-    const mine = rawTasks.filter((task) =>
-      task.assignments?.some((a) => a.membership_id === myMembership.id)
-    );
+    console.log('My membership ID:', myMembership.id);
+    console.log('Raw tasks:', rawTasks.length);
 
+    const mine = rawTasks.filter((task) => {
+      const isAssignedToMe = task.assignments?.some((a) => {
+        console.log(
+          'Assignment membership_id:',
+          a.membership_id,
+          'My membership:',
+          myMembership.id
+        );
+        return a.membership_id === myMembership.id;
+      });
+      return isAssignedToMe;
+    });
+
+    console.log('My tasks:', mine.length);
     setTasks(mine);
-  }, [members, rawTasks]);
+  }, [members, rawTasks, user?.id]);
 
   useEffect(() => {
     if (initialPage === 1) {
@@ -133,7 +147,19 @@ const Assignement = () => {
         `/api/groups/${selectedGroupId}/members`
       );
 
+      console.log('Members API response:', JSON.stringify(res, null, 2));
+      console.log('Current user ID:', user?.id);
+
       if (res.success && res.members) {
+        console.log(
+          'Members data:',
+          res.members.map((m) => ({
+            id: m.id,
+            user_id: m.user_id,
+            user: m.user,
+            display_name: m.user?.display_name || m.user?.pseudo,
+          }))
+        );
         setMembers(res.members);
       }
     } catch (error) {
@@ -214,8 +240,19 @@ const Assignement = () => {
         setSelectedMembers([]);
         setTouched(false);
 
-        await loadMembers();
+        // Recharger les données pour mettre à jour la liste
+        console.log('Reloading data after task creation...');
         await loadRawTasks();
+        await loadMembers();
+
+        // Force un nouveau render en réinitialisant les états
+        setTimeout(() => {
+          console.log('Forcing refresh...');
+          if (selectedGroupId) {
+            loadRawTasks();
+            loadMembers();
+          }
+        }, 500);
 
         setActivePage(0);
         scrollViewRef.current?.scrollTo({ x: 0, animated: true });

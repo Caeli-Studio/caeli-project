@@ -1,63 +1,11 @@
 -- =====================================================
--- Apply All Migrations
+-- Group Roles System Migration
 -- =====================================================
--- Execute this file in Supabase SQL Editor to apply all migrations
+-- This migration creates the group_roles table and updates memberships
+-- to support custom roles with granular permissions
 
--- Migration 001: Auto-create profile trigger
+-- Step 1: Create group_roles table
 -- =====================================================
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (user_id, display_name, avatar_url, created_at, updated_at)
-  VALUES (
-    NEW.id,
-    COALESCE(
-      NEW.raw_user_meta_data->>'full_name',
-      NEW.raw_user_meta_data->>'name',
-      NEW.email
-    ),
-    COALESCE(
-      NEW.raw_user_meta_data->>'avatar_url',
-      NEW.raw_user_meta_data->>'picture'
-    ),
-    NOW(),
-    NOW()
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
-
--- Migration 002: Create profiles for existing users
--- =====================================================
-INSERT INTO public.profiles (user_id, display_name, avatar_url, created_at, updated_at)
-SELECT
-  au.id,
-  COALESCE(
-    au.raw_user_meta_data->>'full_name',
-    au.raw_user_meta_data->>'name',
-    au.email,
-    'User'
-  ),
-  COALESCE(
-    au.raw_user_meta_data->>'avatar_url',
-    au.raw_user_meta_data->>'picture'
-  ),
-  NOW(),
-  NOW()
-FROM auth.users au
-LEFT JOIN public.profiles p ON p.user_id = au.id
-WHERE p.user_id IS NULL;
-
--- Migration 003: Group Roles System
--- =====================================================
-
--- Create group_roles table
 CREATE TABLE IF NOT EXISTS public.group_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
@@ -79,11 +27,12 @@ CREATE TABLE IF NOT EXISTS public.group_roles (
   UNIQUE(group_id, name)
 );
 
--- Create indexes
+-- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_group_roles_group_id ON public.group_roles(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_roles_name ON public.group_roles(name);
 
--- Add role_id column to memberships
+-- Step 2: Add role_id column to memberships (if not exists)
+-- =====================================================
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -95,11 +44,13 @@ BEGIN
     ALTER TABLE public.memberships
     ADD COLUMN role_id UUID REFERENCES public.group_roles(id) ON DELETE SET NULL;
 
+    -- Create index for faster lookups
     CREATE INDEX idx_memberships_role_id ON public.memberships(role_id);
   END IF;
 END $$;
 
--- Function to create default roles
+-- Step 3: Function to create default roles for a group
+-- =====================================================
 CREATE OR REPLACE FUNCTION public.create_default_group_roles(p_group_id UUID)
 RETURNS void AS $$
 DECLARE
@@ -218,7 +169,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to auto-create roles for new groups
+-- Step 4: Trigger to auto-create default roles for new groups
+-- =====================================================
 CREATE OR REPLACE FUNCTION public.handle_new_group()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -233,7 +185,8 @@ CREATE TRIGGER on_group_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_group();
 
--- Create default roles for existing groups
+-- Step 5: Create default roles for ALL existing groups
+-- =====================================================
 DO $$
 DECLARE
   v_group RECORD;
@@ -241,6 +194,7 @@ DECLARE
 BEGIN
   FOR v_group IN SELECT id, name FROM public.groups
   LOOP
+    -- Check if roles already exist
     SELECT COUNT(*) INTO v_role_count
     FROM public.group_roles
     WHERE group_id = v_group.id;
@@ -254,7 +208,8 @@ BEGIN
   END LOOP;
 END $$;
 
--- Update existing memberships with role_id
+-- Step 6: Update existing memberships to link with role_id
+-- =====================================================
 DO $$
 DECLARE
   v_membership RECORD;
@@ -265,6 +220,7 @@ BEGIN
     FROM public.memberships
     WHERE role_id IS NULL
   LOOP
+    -- Find the corresponding role_id
     SELECT id INTO v_role_id
     FROM public.group_roles
     WHERE group_id = v_membership.group_id
@@ -284,40 +240,28 @@ BEGIN
   END LOOP;
 END $$;
 
--- Final Verification
+-- Step 7: Verification
 -- =====================================================
 DO $$
 DECLARE
-  v_user_count INTEGER;
-  v_profile_count INTEGER;
   v_group_count INTEGER;
   v_role_count INTEGER;
   v_membership_count INTEGER;
   v_membership_with_role_count INTEGER;
 BEGIN
-  SELECT COUNT(*) INTO v_user_count FROM auth.users;
-  SELECT COUNT(*) INTO v_profile_count FROM public.profiles;
   SELECT COUNT(*) INTO v_group_count FROM public.groups;
   SELECT COUNT(*) INTO v_role_count FROM public.group_roles;
   SELECT COUNT(*) INTO v_membership_count FROM public.memberships;
   SELECT COUNT(*) INTO v_membership_with_role_count FROM public.memberships WHERE role_id IS NOT NULL;
 
   RAISE NOTICE '====================================';
-  RAISE NOTICE 'All Migrations Complete!';
+  RAISE NOTICE 'Migration Complete!';
   RAISE NOTICE '====================================';
-  RAISE NOTICE 'Users: %', v_user_count;
-  RAISE NOTICE 'Profiles: %', v_profile_count;
-  RAISE NOTICE 'Groups: %', v_group_count;
-  RAISE NOTICE 'Roles: %', v_role_count;
-  RAISE NOTICE 'Memberships: %', v_membership_count;
+  RAISE NOTICE 'Total groups: %', v_group_count;
+  RAISE NOTICE 'Total roles created: %', v_role_count;
+  RAISE NOTICE 'Total memberships: %', v_membership_count;
   RAISE NOTICE 'Memberships with role_id: %', v_membership_with_role_count;
   RAISE NOTICE '';
-
-  IF v_user_count = v_profile_count THEN
-    RAISE NOTICE '✅ All users have profiles!';
-  ELSE
-    RAISE WARNING '⚠️  Missing % profiles', v_user_count - v_profile_count;
-  END IF;
 
   IF v_group_count * 5 = v_role_count THEN
     RAISE NOTICE '✅ All groups have 5 default roles!';
@@ -326,17 +270,17 @@ BEGIN
   END IF;
 
   IF v_membership_count = v_membership_with_role_count THEN
-    RAISE NOTICE '✅ All memberships have role_id!';
+    RAISE NOTICE '✅ All memberships have role_id assigned!';
   ELSE
-    RAISE WARNING '⚠️  % memberships missing role_id', v_membership_count - v_membership_with_role_count;
+    RAISE WARNING '⚠️  % memberships still missing role_id', v_membership_count - v_membership_with_role_count;
   END IF;
 END $$;
 
--- Summary views
+-- Display summary of roles per group
 SELECT
   g.name as group_name,
-  COUNT(DISTINCT gr.id) as role_count,
-  COUNT(DISTINCT m.id) as member_count
+  COUNT(gr.id) as role_count,
+  COUNT(m.id) as member_count
 FROM public.groups g
 LEFT JOIN public.group_roles gr ON gr.group_id = g.id
 LEFT JOIN public.memberships m ON m.group_id = g.id AND m.left_at IS NULL

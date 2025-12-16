@@ -56,6 +56,7 @@ export interface Membership {
   id: string;
   group_id: string;
   user_id: string;
+  role_id?: string; // NEW: Reference to group_roles table
   role_name: string;
   importance: number;
   custom_permissions: Record<string, boolean>;
@@ -182,6 +183,19 @@ export interface Invitation {
   revoked_at?: string;
 }
 
+export interface GroupRole {
+  id: string;
+  group_id: string;
+  name: string;
+  display_name: string;
+  description?: string;
+  is_default: boolean;
+  importance: number;
+  permissions: Permission;
+  created_at: string;
+  updated_at: string;
+}
+
 // =====================================================
 // EXTENDED/POPULATED ENTITIES
 // =====================================================
@@ -217,6 +231,10 @@ export interface TransferWithDetails extends TaskTransfer {
 
 export interface NotificationWithDetails extends Notification {
   membership: MembershipWithProfile;
+}
+
+export interface GroupRoleWithStats extends GroupRole {
+  member_count: number;
 }
 
 // =====================================================
@@ -266,11 +284,13 @@ export interface InviteMemberRequest {
   email?: string;
   user_id?: string;
   role_name?: string;
+  role_id?: string; // NEW: Support for role_id
   importance?: number;
 }
 
 export interface UpdateMembershipRequest {
   role_name?: string;
+  role_id?: string; // NEW: Support for role_id
   importance?: number;
   custom_permissions?: Record<string, boolean>;
 }
@@ -422,6 +442,26 @@ export interface InvitationResponse extends Invitation {
   creator?: MembershipWithProfile;
 }
 
+// GroupRole
+export interface CreateGroupRoleRequest {
+  name: string;
+  display_name: string;
+  description?: string;
+  importance?: number;
+  permissions: Partial<Permission>;
+}
+
+export interface UpdateGroupRoleRequest {
+  display_name?: string;
+  description?: string;
+  importance?: number;
+  permissions?: Partial<Permission>;
+}
+
+export interface GroupRoleResponse extends GroupRole {
+  member_count?: number;
+}
+
 // =====================================================
 // QUERY PARAMETERS
 // =====================================================
@@ -500,9 +540,7 @@ export interface Permission {
   can_delete_tasks: boolean;
   can_manage_members: boolean;
   can_edit_group: boolean;
-  can_view_audit_log: boolean;
-  can_connect_calendar: boolean;
-  can_manage_hub: boolean;
+  can_manage_roles: boolean;
 }
 
 export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
@@ -512,9 +550,7 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
     can_delete_tasks: true,
     can_manage_members: true,
     can_edit_group: true,
-    can_view_audit_log: true,
-    can_connect_calendar: true,
-    can_manage_hub: true,
+    can_manage_roles: true,
   },
   admin: {
     can_create_tasks: true,
@@ -522,19 +558,15 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
     can_delete_tasks: true,
     can_manage_members: true,
     can_edit_group: true,
-    can_view_audit_log: true,
-    can_connect_calendar: true,
-    can_manage_hub: true,
+    can_manage_roles: false,
   },
   member: {
     can_create_tasks: true,
-    can_assign_tasks: false,
+    can_assign_tasks: true,
     can_delete_tasks: false,
     can_manage_members: false,
     can_edit_group: false,
-    can_view_audit_log: false,
-    can_connect_calendar: true,
-    can_manage_hub: false,
+    can_manage_roles: false,
   },
   child: {
     can_create_tasks: false,
@@ -542,9 +574,7 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
     can_delete_tasks: false,
     can_manage_members: false,
     can_edit_group: false,
-    can_view_audit_log: false,
-    can_connect_calendar: false,
-    can_manage_hub: false,
+    can_manage_roles: false,
   },
   guest: {
     can_create_tasks: false,
@@ -552,8 +582,6 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission> = {
     can_delete_tasks: false,
     can_manage_members: false,
     can_edit_group: false,
-    can_view_audit_log: false,
-    can_connect_calendar: false,
-    can_manage_hub: false,
+    can_manage_roles: false,
   },
 };

@@ -3,6 +3,7 @@ import {
   isValidEmail,
   isValidRole,
 } from '../utils/helpers';
+import { getRoleByName, isValidRoleId } from '../utils/roleHelpers';
 
 import type {
   InviteMemberRequest,
@@ -59,7 +60,9 @@ export async function getMembers(
  * Get a specific member
  */
 export async function getMember(
-  request: FastifyRequest<{ Params: { group_id: string; member_id: string } }>,
+  request: FastifyRequest<{
+    Params: { group_id: string; membership_id: string };
+  }>,
   reply: FastifyReply
 ) {
   try {
@@ -73,7 +76,7 @@ export async function getMember(
         preferences:member_preferences(*)
       `
       )
-      .eq('id', request.params.member_id)
+      .eq('id', request.params.membership_id)
       .eq('group_id', request.params.group_id)
       .is('left_at', null)
       .single();
@@ -160,16 +163,53 @@ export async function inviteMember(
       });
     }
 
+    // Determine role_id and role_name
+    let roleId = request.body.role_id;
+    const roleName = request.body.role_name || 'member';
+
+    // If role_id is provided, validate it
+    if (roleId) {
+      const isValid = await isValidRoleId(
+        request.supabaseClient,
+        request.params.group_id,
+        roleId
+      );
+      if (!isValid) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid role_id',
+        });
+      }
+    } else if (roleName) {
+      // If only role_name provided, get the role_id
+      if (!isValidRole(roleName)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid role',
+          message: 'Role must be one of: owner, admin, member, child, guest',
+        });
+      }
+
+      const role = await getRoleByName(
+        request.supabaseClient,
+        request.params.group_id,
+        roleName
+      );
+
+      if (role) {
+        roleId = role.id;
+      }
+    }
+
     // If user was a member before, reactivate
     if (existing && existing.left_at) {
       const { data: membership, error } = await request.supabaseClient
         .from('memberships')
         .update({
           left_at: null,
-          role_name: request.body.role_name || 'member',
-          importance:
-            request.body.importance ||
-            getDefaultImportance(request.body.role_name || 'member'),
+          role_id: roleId,
+          role_name: roleName,
+          importance: request.body.importance || getDefaultImportance(roleName),
         })
         .eq('id', existing.id)
         .select()
@@ -192,21 +232,12 @@ export async function inviteMember(
     }
 
     // Create new membership
-    const roleName = request.body.role_name || 'member';
-
-    if (!isValidRole(roleName)) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Invalid role',
-        message: 'Role must be one of: owner, admin, member, child, guest',
-      });
-    }
-
     const { data: membership, error } = await request.supabaseClient
       .from('memberships')
       .insert({
         group_id: request.params.group_id,
         user_id: userId,
+        role_id: roleId,
         role_name: roleName,
         importance: request.body.importance || getDefaultImportance(roleName),
       })
@@ -252,7 +283,7 @@ export async function inviteMember(
  */
 export async function updateMember(
   request: FastifyRequest<{
-    Params: { group_id: string; member_id: string };
+    Params: { group_id: string; membership_id: string };
     Body: UpdateMembershipRequest;
   }>,
   reply: FastifyReply
@@ -260,8 +291,8 @@ export async function updateMember(
   try {
     // Prevent self-modification of role
     if (
-      request.params.member_id === request.membership?.id &&
-      request.body.role_name
+      request.params.membership_id === request.membership?.id &&
+      (request.body.role_name || request.body.role_id)
     ) {
       return reply.status(400).send({
         success: false,
@@ -270,18 +301,79 @@ export async function updateMember(
       });
     }
 
-    // Validate role if provided
-    if (request.body.role_name && !isValidRole(request.body.role_name)) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Invalid role',
-        message: 'Role must be one of: owner, admin, member, child, guest',
-      });
-    }
-
     const updateData: Record<string, unknown> = {};
 
-    if (request.body.role_name) {
+    // Sanitize role_id (filter 'undefined' string, empty strings, etc.)
+    if (
+      request.body.role_id === 'undefined' ||
+      request.body.role_id === '' ||
+      request.body.role_id === null
+    ) {
+      request.body.role_id = undefined;
+    }
+
+    // Handle role_id if provided
+    if (request.body.role_id) {
+      const isValid = await isValidRoleId(
+        request.supabaseClient,
+        request.params.group_id,
+        request.body.role_id
+      );
+
+      if (!isValid) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid role_id',
+        });
+      }
+
+      updateData.role_id = request.body.role_id;
+
+      // Also get the role_name to keep them in sync
+      const { data: role, error: roleError } = await request.supabaseClient
+        .from('group_roles')
+        .select('name, importance')
+        .eq('id', request.body.role_id)
+        .eq('group_id', request.params.group_id)
+        .single();
+
+      if (roleError || !role) {
+        request.log.error(roleError, 'Failed to fetch role details');
+        return reply.status(400).send({
+          success: false,
+          error: 'Role not found in this group',
+        });
+      }
+
+      updateData.role_name = role.name;
+      // Also update importance if the role has a default importance
+      if (
+        role.importance !== undefined &&
+        request.body.importance === undefined
+      ) {
+        updateData.importance = role.importance;
+      }
+    } else if (request.body.role_name) {
+      // Validate role_name if provided (backward compatibility)
+      if (!isValidRole(request.body.role_name)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid role',
+          message: 'Role must be one of: owner, admin, member, child, guest',
+        });
+      }
+
+      // Get the role_id for the role_name
+      const role = await getRoleByName(
+        request.supabaseClient,
+        request.params.group_id,
+        request.body.role_name
+      );
+
+      if (role) {
+        updateData.role_id = role.id;
+      }
+
       updateData.role_name = request.body.role_name;
     }
 
@@ -296,7 +388,7 @@ export async function updateMember(
     const { data: membership, error } = await request.supabaseClient
       .from('memberships')
       .update(updateData)
-      .eq('id', request.params.member_id)
+      .eq('id', request.params.membership_id)
       .eq('group_id', request.params.group_id)
       .select()
       .single();
@@ -311,14 +403,20 @@ export async function updateMember(
     }
 
     // Notify the member about role change
-    if (request.body.role_name) {
+    if (request.body.role_name || request.body.role_id) {
+      const notificationData: Record<string, unknown> = {
+        new_role: request.body.role_name || updateData.role_name,
+      };
+
+      // Only add changed_by if membership exists
+      if (request.membership?.id) {
+        notificationData.changed_by = request.membership.id;
+      }
+
       await request.supabaseClient.from('notifications').insert({
-        membership_id: request.params.member_id,
+        membership_id: request.params.membership_id,
         type: 'role_changed',
-        data: {
-          new_role: request.body.role_name,
-          changed_by: request.membership?.id,
-        },
+        data: notificationData,
       });
     }
 

@@ -13,6 +13,7 @@ export interface Membership {
   id: string;
   group_id: string;
   user_id: string;
+  role_id?: string; // Reference to group_roles table
   role_name: 'owner' | 'admin' | 'member' | 'child' | 'guest';
   importance: number;
   custom_permissions: Record<string, boolean>;

@@ -121,7 +121,7 @@ export async function getTransfers(
       .select(
         `
         *,
-        task:tasks(*),
+        task:tasks!task_transfers_task_id_fkey(*),
         from_member:memberships!task_transfers_from_membership_id_fkey(
           *,
           profile:profiles(*)
@@ -201,7 +201,7 @@ export async function getTransfer(
       .select(
         `
         *,
-        task:tasks(*),
+        task:tasks!task_transfers_task_id_fkey(*),
         from_member:memberships!task_transfers_from_membership_id_fkey(
           *,
           profile:profiles(*)
@@ -255,7 +255,7 @@ export async function acceptTransfer(
     // Get the transfer
     const { data: transfer } = await request.supabaseClient
       .from('task_transfers')
-      .select('*, task:tasks(*)')
+      .select('*, task:tasks!task_transfers_task_id_fkey(*)')
       .eq('id', request.params.transfer_id)
       .eq('group_id', request.params.group_id)
       .single();

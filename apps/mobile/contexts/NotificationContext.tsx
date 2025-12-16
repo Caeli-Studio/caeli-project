@@ -247,8 +247,9 @@ export function NotificationProvider({
         router.push(`/(app)/tasks/${data.task_id}` as any);
       } else if (data?.type === 'task_completed' && data?.task_id) {
         router.push(`/(app)/tasks/${data.task_id}` as any);
-      } else if (data?.type === 'transfer_request' && data?.transfer_id) {
-        router.push(`/(app)/transfers/${data.transfer_id}` as any);
+      } else if (data?.type === 'transfer_request') {
+        // Navigate to transfers screen with filter for received
+        router.push('/task-transfers' as any);
       }
     });
 

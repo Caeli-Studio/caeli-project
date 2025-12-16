@@ -433,13 +433,16 @@ const Home: React.FC = () => {
   const done = filteredTasks.filter((t) => t.status === 'done').length;
   const open = filteredTasks.filter((t) => t.status === 'open').length;
   const progress = total === 0 ? 0 : (done / total) * 100;
-  // Counters by category
-  const allCount = tasks.length;
-  const mineCount = tasks.filter((task) =>
+
+  // Counters by category - Filtrer les tâches visibles (sans les masquées)
+  const visibleTasks = tasks.filter((task) => !shouldHideCompletedTask(task));
+
+  const allCount = visibleTasks.length;
+  const mineCount = visibleTasks.filter((task) =>
     task.assignments?.some((a) => a.membership_id === myMembershipId)
   ).length;
-  const openCount = tasks.filter((t) => t.status === 'open').length;
-  const doneCount = tasks.filter((t) => t.status === 'done').length;
+  const openCount = visibleTasks.filter((t) => t.status === 'open').length;
+  const doneCount = visibleTasks.filter((t) => t.status === 'done').length;
 
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',

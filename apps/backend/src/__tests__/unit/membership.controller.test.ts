@@ -286,6 +286,16 @@ describe('Membership Controller - Unit Tests', () => {
         error: null,
       } as any);
 
+      // Mock getRoleByName (group_roles lookup)
+      mockSupabase.from.mockReturnValueOnce(mockSupabase);
+      mockSupabase.select.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.eq.mockReturnValueOnce(mockSupabase);
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 'role-id-member', name: 'member', importance: 50 },
+        error: null,
+      } as any);
+
       // Mock membership creation
       mockSupabase.from.mockReturnValueOnce(mockSupabase);
       mockSupabase.insert.mockReturnValueOnce(mockSupabase);
@@ -305,7 +315,7 @@ describe('Membership Controller - Unit Tests', () => {
       const mockRequest = {
         supabaseClient: mockSupabase,
         params: { group_id: mockGroupId },
-        body: { email: 'test@example.com', role: 'member' },
+        body: { email: 'test@example.com', role_name: 'member' },
         log: { error: vi.fn() },
       };
 

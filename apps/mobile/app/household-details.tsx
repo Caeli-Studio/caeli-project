@@ -1315,46 +1315,52 @@ export default function HouseholdDetailsScreen() {
                 </Text>
               )}
 
-              <View style={{ gap: 12, marginTop: 20 }}>
-                {roles
-                  .filter((role) => role.id && role.id !== 'undefined')
-                  .map((role) => (
-                    <TouchableOpacity
-                      key={role.id}
-                      style={[
-                        styles.roleOption,
-                        selectedMember?.role_id === role.id &&
-                          styles.roleOptionSelected,
-                      ]}
-                      onPress={() => changeRole(role.id)}
-                      disabled={changingRole}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.roleOptionTitle}>
-                          {role.display_name}
-                        </Text>
-                        {role.description && (
-                          <Text style={styles.roleOptionDescription}>
-                            {role.description}
+              <ScrollView
+                style={{ maxHeight: 400 }}
+                showsVerticalScrollIndicator={true}
+              >
+                <View style={{ gap: 12, marginTop: 20 }}>
+                  {roles
+                    .filter((role) => role.id && role.id !== 'undefined')
+                    .map((role) => (
+                      <TouchableOpacity
+                        key={role.id}
+                        style={[
+                          styles.roleOption,
+                          selectedMember?.role_id === role.id &&
+                            styles.roleOptionSelected,
+                        ]}
+                        onPress={() => changeRole(role.id)}
+                        disabled={changingRole}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.roleOptionTitle}>
+                            {role.display_name}
                           </Text>
+                          {role.description && (
+                            <Text style={styles.roleOptionDescription}>
+                              {role.description}
+                            </Text>
+                          )}
+                        </View>
+                        {selectedMember?.role_id === role.id && (
+                          <MaterialIcons
+                            name="check-circle"
+                            size={24}
+                            color={theme.colors.primary}
+                          />
                         )}
-                      </View>
-                      {selectedMember?.role_id === role.id && (
-                        <MaterialIcons
-                          name="check-circle"
-                          size={24}
-                          color={theme.colors.primary}
-                        />
-                      )}
-                      {changingRole && selectedMember?.role_id !== role.id && (
-                        <ActivityIndicator
-                          size="small"
-                          color={theme.colors.primary}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-              </View>
+                        {changingRole &&
+                          selectedMember?.role_id !== role.id && (
+                            <ActivityIndicator
+                              size="small"
+                              color={theme.colors.primary}
+                            />
+                          )}
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>

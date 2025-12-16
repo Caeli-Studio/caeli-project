@@ -83,13 +83,11 @@ class RoleService {
    * Delete a custom role
    */
   async deleteRole(groupId: string, roleId: string): Promise<void> {
-    const response = await apiService.delete<{
+    await apiService.delete<{
       success: boolean;
     }>(`/api/groups/${groupId}/roles/${roleId}`);
 
-    if (!response.success) {
-      throw new Error('Failed to delete role');
-    }
+    // No need to check response.success for 204 responses
   }
 }
 

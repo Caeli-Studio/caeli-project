@@ -35,7 +35,7 @@ type RouteParams = {
 const Assignement = () => {
   const router = useRouter();
   const { theme } = useTheme();
-  const [activePage, setActivePage] = useState(0);
+
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,13 @@ const Assignement = () => {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
+
   const route = useRoute<RouteProp<RouteParams, 'assignement'>>();
+  const initialPage = route.params?.page ?? 0;
+  const [activePage, setActivePage] = useState(initialPage);
+  const isTaskValid =
+    taskName.trim().length > 0 && selectedMembers.length > 0 && !loading;
+  const [touched, setTouched] = useState(false);
   const dateSelected = route.params?.selectedDate;
 
   const [taskDate] = useState(
@@ -77,14 +83,23 @@ const Assignement = () => {
       return;
     }
 
-    console.log('My membership ID:', myMembership.id);
-
     const mine = rawTasks.filter((task) =>
       task.assignments?.some((a) => a.membership_id === myMembership.id)
     );
 
     setTasks(mine);
   }, [members, rawTasks]);
+
+  useEffect(() => {
+    if (initialPage === 1) {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          x: width * 0.8 * initialPage,
+          animated: false,
+        });
+      });
+    }
+  }, [initialPage]);
 
   const loadGroups = async () => {
     try {
@@ -97,6 +112,12 @@ const Assignement = () => {
       console.error('Failed to load groups:', error);
       Alert.alert('Erreur', 'Impossible de charger les foyers');
     }
+  };
+
+  const formatDateFR = (dateString: string) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    return `${day}-${month}-${year.slice(2)}`;
   };
 
   const loadMembers = async () => {
@@ -166,10 +187,7 @@ const Assignement = () => {
   };
 
   const handleAddTask = async () => {
-    if (!taskName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer le nom de la tâche.');
-      return;
-    }
+    if (!isTaskValid) return;
 
     if (!selectedGroupId) {
       Alert.alert('Erreur', 'Aucun foyer sélectionné');
@@ -194,6 +212,7 @@ const Assignement = () => {
         setTaskName('');
         setTaskDescription('');
         setSelectedMembers([]);
+        setTouched(false);
 
         await loadMembers();
         await loadRawTasks();
@@ -203,9 +222,7 @@ const Assignement = () => {
       }
     } catch (error: unknown) {
       console.error('Failed to create task:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Impossible de créer la tâche';
-      Alert.alert('Erreur', errorMessage);
+      Alert.alert('Erreur', 'Impossible de créer la tâche');
     } finally {
       setLoading(false);
     }
@@ -437,6 +454,14 @@ const Assignement = () => {
       color: theme.colors.textSecondary,
       marginTop: 4,
     },
+
+    errorText: {
+      fontSize: 12,
+      color: theme.colors.error ?? '#E53935',
+      marginTop: 4,
+      marginBottom: 8,
+      alignSelf: 'flex-start',
+    },
   });
 
   return (
@@ -551,16 +576,33 @@ const Assignement = () => {
                     <Text style={styles.message}>{page.text}</Text>
 
                     <TextInput
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        touched &&
+                          taskName.trim().length === 0 && {
+                            borderColor: theme.colors.error ?? '#E53935',
+                          },
+                      ]}
                       placeholder="Nom de la tâche *"
+                      placeholderTextColor={theme.colors.placeholder}
                       value={taskName}
-                      onChangeText={setTaskName}
+                      onChangeText={(text) => {
+                        setTouched(true);
+                        setTaskName(text);
+                      }}
                       editable={!loading}
                     />
+
+                    {touched && taskName.trim().length === 0 && (
+                      <Text style={styles.errorText}>
+                        Le nom de la tâche est obligatoire
+                      </Text>
+                    )}
 
                     <TextInput
                       style={styles.input}
                       placeholder="Description de la tâche ..."
+                      placeholderTextColor={theme.colors.placeholder}
                       value={taskDescription}
                       onChangeText={setTaskDescription}
                       multiline
@@ -585,7 +627,10 @@ const Assignement = () => {
                                 styles.chip,
                                 selected && styles.chipSelected,
                               ]}
-                              onPress={() => toggleMember(m.id)}
+                              onPress={() => {
+                                setTouched(true);
+                                toggleMember(m.id);
+                              }}
                             >
                               <Text
                                 style={[
@@ -601,16 +646,25 @@ const Assignement = () => {
                       )}
                     </View>
 
+                    {touched && selectedMembers.length === 0 && (
+                      <Text style={styles.errorText}>
+                        Veuillez assigner la tâche à au moins une personne
+                      </Text>
+                    )}
+
                     <TextInput
                       style={styles.input}
-                      value={taskDate}
+                      value={formatDateFR(taskDate)}
                       editable={false}
                     />
 
                     <TouchableOpacity
-                      style={styles.buttonAdd}
+                      style={[
+                        styles.buttonAdd,
+                        !isTaskValid && { opacity: 0.5 },
+                      ]}
                       onPress={handleAddTask}
-                      disabled={loading}
+                      disabled={!isTaskValid}
                     >
                       {loading ? (
                         <ActivityIndicator color="#fff" />

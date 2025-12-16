@@ -23,14 +23,24 @@ let notificationChannel: RealtimeChannel | null = null;
 /**
  * Initialize Supabase client for realtime subscriptions
  */
-export function initializeSupabaseClient(): SupabaseClient {
-  if (!supabaseClient) {
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: false, // We handle auth via backend
-      },
-    });
+export function initializeSupabaseClient(): SupabaseClient | null {
+  if (supabaseClient) {
+    return supabaseClient;
   }
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn(
+      '[Realtime] Supabase config missing. Realtime notifications disabled.'
+    );
+    return null;
+  }
+
+  supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+    },
+  });
+
   return supabaseClient;
 }
 
@@ -116,6 +126,10 @@ export function subscribeToNotifications(
   }
 ): () => void {
   const client = initializeSupabaseClient();
+
+  if (!client) {
+    return () => {};
+  }
 
   // Unsubscribe from previous channel if exists
   if (notificationChannel) {

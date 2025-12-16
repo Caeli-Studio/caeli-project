@@ -70,6 +70,9 @@ interface Theme {
     navbar: string;
     navbarText: string;
     navbarActive: string;
+
+    // placeholder
+    placeholder: string;
   };
 }
 
@@ -139,6 +142,9 @@ const lightTheme: Theme['colors'] = {
   navbar: '#FFFFFF',
   navbarText: '#6B7280',
   navbarActive: '#6366F1',
+
+  // placeholder
+  placeholder: '#9CA3AF',
 };
 
 const darkTheme: Theme['colors'] = {
@@ -197,6 +203,9 @@ const darkTheme: Theme['colors'] = {
   navbar: '#1E293B',
   navbarText: '#94A3B8',
   navbarActive: '#818CF8',
+
+  // placeholder
+  placeholder: '#ffffffff',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

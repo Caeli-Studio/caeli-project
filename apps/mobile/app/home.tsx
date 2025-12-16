@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,7 +37,8 @@ const Home: React.FC = () => {
   const { theme } = useTheme();
   const { initializeNotifications, isInitialized } = useNotifications();
   const router = useRouter();
-
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const flatListRef = useRef<FlatList<TaskWithDetails>>(null);
   // State
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<TaskWithDetails[]>([]);
@@ -133,6 +134,22 @@ const Home: React.FC = () => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, currentFilter, myMembershipId]);
+
+  useEffect(() => {
+    if (!taskId || filteredTasks.length === 0) return;
+
+    const index = filteredTasks.findIndex((task) => task.id === taskId);
+
+    if (index === -1) return;
+
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.3,
+      });
+    });
+  }, [taskId, filteredTasks]);
 
   const loadInitialData = async () => {
     try {
@@ -275,6 +292,15 @@ const Home: React.FC = () => {
   const changeTaskStatus = async (newStatus: TaskStatus) => {
     if (!selectedTask) return;
 
+    // 🔒 PROTECTION FRONTEND
+    if (!selectedTask.can_complete) {
+      Alert.alert(
+        'Action impossible',
+        "Vous ne pouvez pas modifier une tâche assignée à quelqu'un d'autre."
+      );
+      return;
+    }
+
     try {
       closeStatusModal();
 
@@ -404,7 +430,6 @@ const Home: React.FC = () => {
   const done = filteredTasks.filter((t) => t.status === 'done').length;
   const open = filteredTasks.filter((t) => t.status === 'open').length;
   const progress = total === 0 ? 0 : (done / total) * 100;
-
   // Counters by category
   const allCount = tasks.length;
   const mineCount = tasks.filter((task) =>
@@ -954,64 +979,88 @@ const Home: React.FC = () => {
 
         {filteredTasks.length > 0 ? (
           <FlatList
+            ref={flatListRef}
             data={filteredTasks}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => toggleTaskComplete(item)}
-                onLongPress={() => openStatusModal(item)}
-                style={[styles.task, item.status === 'done' && styles.taskDone]}
-              >
-                <View style={styles.taskLeft}>
-                  <Ionicons
-                    name={
-                      item.status === 'done'
-                        ? 'checkmark-circle'
-                        : 'ellipse-outline'
-                    }
-                    size={24}
-                    color={getStatusColor(item.status)}
-                  />
-                  <View style={styles.taskContent}>
-                    <Text
-                      style={[
-                        styles.taskText,
-                        item.status === 'done' && styles.taskTextDone,
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                    {item.description && (
-                      <Text style={styles.taskDesc}>{item.description}</Text>
-                    )}
-                    {item.due_at && (
-                      <Text style={styles.taskDate}>
-                        📅 {formatDate(item.due_at)}
-                      </Text>
-                    )}
-                    {item.assigned_members &&
-                      item.assigned_members.length > 0 && (
-                        <Text style={styles.taskAssigned}>
-                          👤{' '}
-                          {item.assigned_members
-                            .map((m) => m.profile.display_name)
-                            .join(', ')}
-                        </Text>
-                      )}
-                  </View>
-                </View>
-                <View
+            renderItem={({ item }) => {
+              const isFocused = item.id === taskId;
+
+              return (
+                <TouchableOpacity
+                  disabled={!item.can_complete}
+                  onPress={() => toggleTaskComplete(item)}
+                  onLongPress={() => item.can_complete && openStatusModal(item)}
                   style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(item.status) },
+                    styles.task,
+                    item.status === 'done' && styles.taskDone,
+                    !item.can_complete && { opacity: 0.5 },
+                    isFocused && {
+                      borderWidth: 2,
+                      borderColor: theme.colors.primary,
+                    },
                   ]}
                 >
-                  <Text style={styles.statusText}>
-                    {getStatusLabel(item.status)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                  <View style={styles.taskLeft}>
+                    <Ionicons
+                      name={
+                        item.status === 'done'
+                          ? 'checkmark-circle'
+                          : 'ellipse-outline'
+                      }
+                      size={24}
+                      color={getStatusColor(item.status)}
+                    />
+                    <View style={styles.taskContent}>
+                      <Text
+                        style={[
+                          styles.taskText,
+                          item.status === 'done' && styles.taskTextDone,
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+
+                      {item.description && (
+                        <Text style={styles.taskDesc}>{item.description}</Text>
+                      )}
+
+                      {item.due_at && (
+                        <Text style={styles.taskDate}>
+                          📅 {formatDate(item.due_at)}
+                        </Text>
+                      )}
+
+                      {item.assigned_members &&
+                        item.assigned_members.length > 0 && (
+                          <Text style={styles.taskAssigned}>
+                            👤{' '}
+                            {item.assigned_members
+                              .map((m) => m.profile.display_name)
+                              .join(', ')}
+                          </Text>
+                        )}
+
+                      {!item.can_complete && (
+                        <Text style={styles.taskAssigned}>
+                          🔒 Assignée à un autre membre
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(item.status) },
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {getStatusLabel(item.status)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }

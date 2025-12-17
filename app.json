@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f44c18a8-7aa2-45d0-ab00-d44b7d994bfa"
+      }
+    },
+    "android": {
+      "package": "com.ciancode.caeliproject"
+    }
+  }
+}

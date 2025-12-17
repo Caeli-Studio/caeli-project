@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Monorepo with Fastify backend and React Native frontend",
-  "packageManager": "pnpm@10.17.0",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
@@ -53,10 +52,6 @@
     "typescript-eslint": "^8.44.0",
     "vitest": "^4.0.10"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",

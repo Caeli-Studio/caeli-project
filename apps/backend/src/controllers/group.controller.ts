@@ -1,3 +1,5 @@
+import { getRoleByName, createDefaultRoles } from '../utils/roleHelpers';
+
 import type {
   CreateGroupRequest,
   GroupResponse,
@@ -47,12 +49,43 @@ export async function createGroup(
       });
     }
 
-    // Add creator as owner
+    // Note: Default roles are automatically created by the database trigger 'on_group_created'
+    // Get the owner role (should be created by the trigger)
+    let ownerRole = await getRoleByName(supabase, group.id, 'owner');
+
+    if (!ownerRole) {
+      // Fallback: trigger may have failed, create roles manually
+      request.log.warn(
+        { groupId: group.id },
+        'Owner role not found, creating default roles manually'
+      );
+
+      try {
+        await createDefaultRoles(supabase, group.id);
+        ownerRole = await getRoleByName(supabase, group.id, 'owner');
+
+        if (!ownerRole) {
+          throw new Error('Failed to create default roles');
+        }
+      } catch (fallbackError) {
+        request.log.error(fallbackError, 'Failed to initialize group roles');
+        // Rollback: delete the group
+        await supabase.from('groups').delete().eq('id', group.id);
+
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to initialize group roles',
+        });
+      }
+    }
+
+    // Add creator as owner with role_id
     const { data: membership, error: membershipError } = await supabase
       .from('memberships')
       .insert({
         group_id: group.id,
         user_id: userId,
+        role_id: ownerRole.id,
         role_name: 'owner',
         importance: 100,
       })

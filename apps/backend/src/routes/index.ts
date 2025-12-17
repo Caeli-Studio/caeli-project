@@ -9,6 +9,7 @@ import membershipRoutes from './membership.routes';
 import notificationRoutes from './notification.routes';
 import profileRoutes from './profile.routes';
 import { pushTokenRoutes } from './push-token.routes';
+import roleRoutes from './role.routes';
 import supabaseHealthRoutes from './supabase-health.routes';
 import taskRoutes from './task.routes';
 import transferRoutes from './transfer.routes';
@@ -67,6 +68,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
           // Hub/Monitor routes
           await groupApi.register(hubRoutes, { prefix: '/:group_id/hub' });
+
+          // Role routes
+          await groupApi.register(roleRoutes, { prefix: '/:group_id/roles' });
         },
         { prefix: '/groups' }
       );

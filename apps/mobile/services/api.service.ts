@@ -125,6 +125,12 @@ class ApiService {
       throw new Error(`API request failed: ${response.statusText}`);
     }
 
+    // Handle empty responses (204 No Content)
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
+      return {} as T;
+    }
+
     return response.json();
   }
 

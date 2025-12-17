@@ -1,7 +1,7 @@
 import {
   getClientIP,
-  getMembershipPermissions,
-  hasPermission,
+  hasPermissionAsync,
+  resolveMembershipPermissions,
 } from '../utils/helpers';
 
 import type { Membership, Permission } from '../types/database';
@@ -80,8 +80,19 @@ export function requirePermission(permission: keyof Permission) {
       });
     }
 
-    if (!hasPermission(request.membership, permission)) {
-      const permissions = getMembershipPermissions(request.membership);
+    // Use async permission check which can fetch role permissions when needed
+    const ok = await hasPermissionAsync(
+      request.membership,
+      String(permission),
+      // supabase client available on request object
+      (request as any).supabaseClient
+    );
+
+    if (!ok) {
+      const permissions = await resolveMembershipPermissions(
+        request.membership,
+        (request as any).supabaseClient
+      );
 
       return reply.status(403).send({
         success: false,

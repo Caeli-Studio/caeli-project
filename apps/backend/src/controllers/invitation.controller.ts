@@ -1,4 +1,5 @@
 import { generateInvitationCode, isValidPseudo } from '../utils/helpers';
+import { getLowestImportanceRole } from '../utils/roleHelpers';
 
 import type {
   AcceptInvitationRequest,
@@ -369,6 +370,21 @@ export async function acceptInvitation(
       }
     }
 
+    // Get the role with lowest importance for this group (default role for invited users)
+    const defaultRole = await getLowestImportanceRole(
+      request.supabaseClient,
+      invitation.group_id
+    );
+
+    if (!defaultRole) {
+      request.log.error('No roles found for group');
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to find default role',
+        message: 'Group does not have any roles defined',
+      });
+    }
+
     // Check if already an active member
     const { data: activeMember } = await request.supabaseClient
       .from('memberships')
@@ -404,8 +420,9 @@ export async function acceptInvitation(
           .from('memberships')
           .update({
             left_at: null,
-            role_name: 'member',
-            importance: 50,
+            role_name: defaultRole.name,
+            role_id: defaultRole.id,
+            importance: defaultRole.importance,
           })
           .eq('id', previousMember.id)
           .select()
@@ -429,8 +446,9 @@ export async function acceptInvitation(
           .insert({
             group_id: invitation.group_id,
             user_id: request.user.sub,
-            role_name: 'member',
-            importance: 50,
+            role_name: defaultRole.name,
+            role_id: defaultRole.id,
+            importance: defaultRole.importance,
           })
           .select()
           .single();

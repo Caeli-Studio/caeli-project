@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { storage } from '@/lib/storage';
 import { apiService } from '@/services/api.service';
 import { taskService } from '@/services/task.service';
+import { transferService } from '@/services/transfer.service';
 
 type FilterType = 'all' | 'mine' | 'open' | 'done';
 
@@ -37,7 +38,8 @@ const Home: React.FC = () => {
   const { theme } = useTheme();
   const { initializeNotifications, isInitialized } = useNotifications();
   const router = useRouter();
-
+  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const flatListRef = useRef<FlatList<TaskWithDetails>>(null);
   // State
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<TaskWithDetails[]>([]);
@@ -49,6 +51,10 @@ const Home: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(
     null
   );
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
+  const [transferring, setTransferring] = useState(false);
+  const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
 
   // Multi-household state
   const [groups, setGroups] = useState<GetGroupsResponse['data']>([]);
@@ -134,6 +140,54 @@ const Home: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, currentFilter, myMembershipId]);
 
+  useEffect(() => {
+    if (!taskId || filteredTasks.length === 0) return;
+
+    const index = filteredTasks.findIndex((task) => task.id === taskId);
+
+    if (index === -1) return;
+
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.3,
+      });
+    });
+  }, [taskId, filteredTasks]);
+
+  const loadPendingTransfers = useCallback(async () => {
+    try {
+      const groupsResponse =
+        await apiService.get<GetGroupsResponse>('/api/groups');
+
+      if (groupsResponse.success) {
+        let totalPending = 0;
+
+        for (const { group } of groupsResponse.data) {
+          try {
+            const response = await transferService.getTransfers(group.id, {
+              to_me: true,
+              status: 'pending' as const,
+            });
+            if (response.success) {
+              totalPending += response.transfers.length;
+            }
+          } catch (error) {
+            console.error(
+              `Error loading pending transfers for group ${group.id}:`,
+              error
+            );
+          }
+        }
+
+        setPendingTransfersCount(totalPending);
+      }
+    } catch (error) {
+      console.error('Error loading pending transfers count:', error);
+    }
+  }, []);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -183,6 +237,9 @@ const Home: React.FC = () => {
 
         // 5. Load tasks from all households
         await loadAllTasks(allGroups);
+
+        // 6. Load pending transfers count
+        await loadPendingTransfers();
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -233,11 +290,49 @@ const Home: React.FC = () => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadAllTasks(groups);
+    await loadPendingTransfers();
     setRefreshing(false);
-  }, [groups]);
+  }, [groups, loadPendingTransfers]);
+
+  /**
+   * Détermine la date de complétion d'une tâche
+   * Retourne la date la plus récente parmi toutes les assignations complétées
+   */
+  const getTaskCompletionDate = (task: TaskWithDetails): Date | null => {
+    if (task.status !== 'done') return null;
+
+    const completionDates = task.assignments
+      ?.map((a) => a.completed_at)
+      .filter((d): d is string => d != null)
+      .map((d) => new Date(d));
+
+    if (!completionDates || completionDates.length === 0) return null;
+
+    return new Date(Math.max(...completionDates.map((d) => d.getTime())));
+  };
+
+  /**
+   * Vérifie si une tâche doit être masquée (terminée avant minuit aujourd'hui)
+   */
+  const shouldHideCompletedTask = (task: TaskWithDetails): boolean => {
+    if (task.status !== 'done') return false;
+
+    const completionDate = getTaskCompletionDate(task);
+    if (!completionDate) return false;
+
+    // Calculer minuit aujourd'hui (00:00:00)
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // Masquer si complété avant minuit aujourd'hui
+    return completionDate < todayMidnight;
+  };
 
   const applyFilters = () => {
     let filtered = [...tasks];
+
+    // ✅ Filtrer automatiquement les tâches terminées avant minuit
+    filtered = filtered.filter((task) => !shouldHideCompletedTask(task));
 
     switch (currentFilter) {
       case 'mine':
@@ -274,6 +369,15 @@ const Home: React.FC = () => {
 
   const changeTaskStatus = async (newStatus: TaskStatus) => {
     if (!selectedTask) return;
+
+    // 🔒 PROTECTION FRONTEND
+    if (!selectedTask.can_complete) {
+      Alert.alert(
+        'Action impossible',
+        "Vous ne pouvez pas modifier une tâche assignée à quelqu'un d'autre."
+      );
+      return;
+    }
 
     try {
       closeStatusModal();
@@ -342,16 +446,84 @@ const Home: React.FC = () => {
               }
             } catch (error) {
               console.error('Failed to delete task:', error);
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : 'Impossible de supprimer la tâche';
+
+              // Extract error message from API response
+              let errorMessage = 'Impossible de supprimer la tâche';
+              if (error && typeof error === 'object' && 'response' in error) {
+                const response = (error as any).response;
+                if (response?.data?.message) {
+                  errorMessage = response.data.message;
+                } else if (response?.status === 403) {
+                  errorMessage =
+                    "Vous n'avez pas la permission de supprimer cette tâche";
+                }
+              } else if (error instanceof Error) {
+                errorMessage = error.message;
+              }
+
               Alert.alert('Erreur', errorMessage);
             }
           },
         },
       ]
     );
+  };
+
+  const openTransferModal = async () => {
+    if (!selectedTask) return;
+
+    try {
+      // Load members of the group
+      const response = await apiService.get<{
+        success: boolean;
+        members: any[];
+      }>(`/api/groups/${selectedTask.group_id}/members`);
+
+      if (response.success) {
+        // Get IDs of members already assigned to this task
+        const assignedMembershipIds =
+          selectedTask.assignments?.map((a) => a.membership_id) || [];
+
+        // Filter out current user and members already assigned to this task
+        const currentMembershipId = myMembershipIds.get(selectedTask.group_id);
+        const availableMembers = response.members.filter(
+          (m) =>
+            m.id !== currentMembershipId &&
+            !assignedMembershipIds.includes(m.id)
+        );
+        setMembers(availableMembers);
+        setStatusModalVisible(false);
+        setTransferModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error loading members:', error);
+      Alert.alert('Erreur', 'Impossible de charger les membres');
+    }
+  };
+
+  const transferTask = async (toMembershipId: string) => {
+    if (!selectedTask) return;
+
+    try {
+      setTransferring(true);
+      await transferService.createTransfer(selectedTask.group_id, {
+        task_id: selectedTask.id,
+        to_membership_id: toMembershipId,
+        message: `Demande de transfert de la tâche "${selectedTask.title}"`,
+      });
+
+      setTransferModalVisible(false);
+      setSelectedTask(null);
+      Alert.alert(
+        'Succès',
+        'Demande de transfert envoyée. Le membre recevra une notification.'
+      );
+    } catch (error) {
+      console.error('Error transferring task:', error);
+      Alert.alert('Erreur', 'Impossible de transférer la tâche');
+    } finally {
+      setTransferring(false);
+    }
   };
 
   const toggleTaskComplete = async (task: TaskWithDetails) => {
@@ -378,10 +550,21 @@ const Home: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to complete task:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Impossible de terminer la tâche';
+
+      // Extract error message from API response
+      let errorMessage = 'Impossible de terminer la tâche';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as any).response;
+        if (response?.data?.message) {
+          errorMessage = response.data.message;
+        } else if (response?.status === 403) {
+          errorMessage =
+            'Vous devez être assigné à cette tâche pour la compléter';
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       Alert.alert('Erreur', errorMessage);
     }
   };
@@ -405,13 +588,19 @@ const Home: React.FC = () => {
   const open = filteredTasks.filter((t) => t.status === 'open').length;
   const progress = total === 0 ? 0 : (done / total) * 100;
 
-  // Counters by category
-  const allCount = tasks.length;
-  const mineCount = tasks.filter((task) =>
-    task.assignments?.some((a) => a.membership_id === myMembershipId)
-  ).length;
-  const openCount = tasks.filter((t) => t.status === 'open').length;
-  const doneCount = tasks.filter((t) => t.status === 'done').length;
+  // Counters by category - Filtrer les tâches visibles (sans les masquées)
+  const visibleTasks = tasks.filter((task) => !shouldHideCompletedTask(task));
+
+  const allCount = visibleTasks.length;
+  const mineCount = visibleTasks.filter((task) => {
+    if (task.status !== 'open') return false;
+    const relevantMembershipId = myMembershipIds.get(task.group_id);
+    return task.assignments?.some(
+      (a) => a.membership_id === relevantMembershipId
+    );
+  }).length;
+  const openCount = visibleTasks.filter((t) => t.status === 'open').length;
+  const doneCount = visibleTasks.filter((t) => t.status === 'done').length;
 
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -476,6 +665,31 @@ const Home: React.FC = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    notificationButton: {
+      position: 'relative',
+    },
+    notificationBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: theme.colors.error,
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    notificationBadgeText: {
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: 'bold',
     },
     date: {
       fontSize: 14,
@@ -657,22 +871,6 @@ const Home: React.FC = () => {
       color: theme.colors.textSecondary,
       fontSize: 16,
     },
-    fab: {
-      position: 'absolute',
-      bottom: 80,
-      right: 30,
-      backgroundColor: theme.colors.success,
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.2,
-      shadowOffset: { width: 0, height: 2 },
-      shadowRadius: 5,
-      elevation: 5,
-    },
     // Modal styles
     modalOverlay: {
       flex: 1,
@@ -726,6 +924,10 @@ const Home: React.FC = () => {
       borderLeftWidth: 4,
       borderLeftColor: theme.colors.taskCancelled,
     },
+    statusTransfer: {
+      borderLeftWidth: 4,
+      borderLeftColor: '#2196F3',
+    },
     statusDelete: {
       borderLeftWidth: 4,
       borderLeftColor: theme.colors.error,
@@ -756,6 +958,56 @@ const Home: React.FC = () => {
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
+    transferModalContent: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 15,
+      padding: 20,
+      width: '90%',
+      maxHeight: '70%',
+    },
+    transferModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    transferDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginTop: 10,
+      marginBottom: 15,
+    },
+    membersList: {
+      maxHeight: 300,
+    },
+    memberOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 15,
+      backgroundColor: theme.colors.background,
+      borderRadius: 10,
+      marginBottom: 10,
+    },
+    memberInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    memberTextInfo: {
+      marginLeft: 12,
+      flex: 1,
+    },
+    memberName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    memberRole: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginTop: 2,
+    },
     taskListContainer: {
       paddingBottom: 100,
     },
@@ -782,13 +1034,32 @@ const Home: React.FC = () => {
               {today.charAt(0).toUpperCase() + today.slice(1)}
             </Text>
           </View>
-          <TouchableOpacity onPress={handleSignOut}>
-            <Ionicons
-              name="log-out-outline"
-              size={28}
-              color={theme.colors.error}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push('/task-transfers' as any)}
+              style={styles.notificationButton}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={28}
+                color={theme.colors.text}
+              />
+              {pendingTransfersCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {pendingTransfersCount > 9 ? '9+' : pendingTransfersCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSignOut}>
+              <Ionicons
+                name="log-out-outline"
+                size={28}
+                color={theme.colors.error}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* SÉLECTEUR DE FOYER */}
@@ -948,70 +1219,89 @@ const Home: React.FC = () => {
             : currentFilter === 'open'
               ? 'Tâches à faire'
               : currentFilter === 'done'
-                ? 'Tâches terminées'
+                ? "Tâches terminées aujourd'hui"
                 : 'Toutes les tâches'}
         </Text>
 
         {filteredTasks.length > 0 ? (
           <FlatList
+            ref={flatListRef}
             data={filteredTasks}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => toggleTaskComplete(item)}
-                onLongPress={() => openStatusModal(item)}
-                style={[styles.task, item.status === 'done' && styles.taskDone]}
-              >
-                <View style={styles.taskLeft}>
-                  <Ionicons
-                    name={
-                      item.status === 'done'
-                        ? 'checkmark-circle'
-                        : 'ellipse-outline'
-                    }
-                    size={24}
-                    color={getStatusColor(item.status)}
-                  />
-                  <View style={styles.taskContent}>
-                    <Text
-                      style={[
-                        styles.taskText,
-                        item.status === 'done' && styles.taskTextDone,
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                    {item.description && (
-                      <Text style={styles.taskDesc}>{item.description}</Text>
-                    )}
-                    {item.due_at && (
-                      <Text style={styles.taskDate}>
-                        📅 {formatDate(item.due_at)}
-                      </Text>
-                    )}
-                    {item.assigned_members &&
-                      item.assigned_members.length > 0 && (
-                        <Text style={styles.taskAssigned}>
-                          👤{' '}
-                          {item.assigned_members
-                            .map((m) => m.profile.display_name)
-                            .join(', ')}
-                        </Text>
-                      )}
-                  </View>
-                </View>
-                <View
+            renderItem={({ item }) => {
+              const isFocused = item.id === taskId;
+
+              return (
+                <TouchableOpacity
+                  onPress={() => openStatusModal(item)}
+                  onLongPress={() =>
+                    item.can_complete ? toggleTaskComplete(item) : undefined
+                  }
                   style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(item.status) },
+                    styles.task,
+                    item.status === 'done' && styles.taskDone,
+                    !item.can_complete && { opacity: 0.5 },
+                    isFocused && {
+                      borderWidth: 2,
+                      borderColor: theme.colors.primary,
+                    },
                   ]}
                 >
-                  <Text style={styles.statusText}>
-                    {getStatusLabel(item.status)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                  <View style={styles.taskLeft}>
+                    <Ionicons
+                      name={
+                        item.status === 'done'
+                          ? 'checkmark-circle'
+                          : 'ellipse-outline'
+                      }
+                      size={24}
+                      color={getStatusColor(item.status)}
+                    />
+                    <View style={styles.taskContent}>
+                      <Text
+                        style={[
+                          styles.taskText,
+                          item.status === 'done' && styles.taskTextDone,
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+
+                      {item.description && (
+                        <Text style={styles.taskDesc}>{item.description}</Text>
+                      )}
+
+                      {item.due_at && (
+                        <Text style={styles.taskDate}>
+                          📅 {formatDate(item.due_at)}
+                        </Text>
+                      )}
+
+                      {item.assigned_members &&
+                        item.assigned_members.length > 0 && (
+                          <Text style={styles.taskAssigned}>
+                            👤{' '}
+                            {item.assigned_members
+                              .map((m) => m.profile.display_name)
+                              .join(', ')}
+                          </Text>
+                        )}
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(item.status) },
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {getStatusLabel(item.status)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
@@ -1027,16 +1317,6 @@ const Home: React.FC = () => {
             <Text style={styles.emptyText}>Aucune tâche trouvée</Text>
           </View>
         )}
-
-        {/* FAB */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() =>
-            router.push({ pathname: '/assignement', params: { page: 1 } })
-          }
-        >
-          <Ionicons name="add" size={30} color="#fff" />
-        </TouchableOpacity>
 
         {/* Status Change Modal */}
         <Modal
@@ -1080,6 +1360,18 @@ const Home: React.FC = () => {
                 <Text style={styles.statusOptionText}>Annulée</Text>
               </TouchableOpacity>
 
+              {selectedTask?.can_transfer && (
+                <TouchableOpacity
+                  style={[styles.statusOption, styles.statusTransfer]}
+                  onPress={openTransferModal}
+                >
+                  <Ionicons name="swap-horizontal" size={24} color="#2196F3" />
+                  <Text style={styles.statusOptionText}>
+                    Transférer à un membre
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={[styles.statusOption, styles.statusDelete]}
                 onPress={deleteTask}
@@ -1096,6 +1388,80 @@ const Home: React.FC = () => {
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
+        </Modal>
+
+        {/* Transfer Modal */}
+        <Modal
+          visible={transferModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setTransferModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.transferModalContent}>
+              <View style={styles.transferModalHeader}>
+                <Text style={styles.modalTitle}>Transférer la tâche</Text>
+                <TouchableOpacity
+                  onPress={() => setTransferModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color={theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                {selectedTask?.title || ''}
+              </Text>
+              <Text style={styles.transferDescription}>
+                Sélectionnez un membre pour lui proposer cette tâche :
+              </Text>
+
+              <ScrollView style={styles.membersList}>
+                {members.map((member) => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={styles.memberOption}
+                    onPress={() => transferTask(member.id)}
+                    disabled={transferring}
+                  >
+                    <View style={styles.memberInfo}>
+                      <Ionicons
+                        name="person-circle"
+                        size={40}
+                        color={theme.colors.primary}
+                      />
+                      <View style={styles.memberTextInfo}>
+                        <Text style={styles.memberName}>
+                          {member.profile.display_name}
+                        </Text>
+                        <Text style={styles.memberRole}>
+                          {member.role_name}
+                        </Text>
+                      </View>
+                    </View>
+                    {transferring ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={24}
+                        color={theme.colors.textSecondary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setTransferModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
 
         <Navbar />

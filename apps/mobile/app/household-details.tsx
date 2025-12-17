@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import type { GroupRole, Permission } from '@/types/role';
+
 import Navbar from '@/components/navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import {
@@ -27,10 +29,13 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { apiService } from '@/services/api.service';
+import { roleService } from '@/services/role.service';
+import { PERMISSION_LABELS } from '@/types/role';
 
 interface Member {
   id: string;
   user_id: string;
+  role_id?: string;
   role_name: string;
   joined_at: string;
   profile: {
@@ -59,6 +64,7 @@ export default function HouseholdDetailsScreen() {
   }>();
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [roles, setRoles] = useState<GroupRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteType, setInviteType] = useState<
@@ -69,6 +75,9 @@ export default function HouseholdDetailsScreen() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [changingRole, setChangingRole] = useState(false);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -92,6 +101,16 @@ export default function HouseholdDetailsScreen() {
       Alert.alert('Erreur', 'Impossible de charger les membres.');
     } finally {
       setLoading(false);
+    }
+  }, [groupId]);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const fetchedRoles = await roleService.getRoles(groupId!);
+      setRoles(fetchedRoles);
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      // Don't show error to user - roles are optional enhancement
     }
   }, [groupId]);
 
@@ -154,6 +173,116 @@ export default function HouseholdDetailsScreen() {
     );
   };
 
+  const openRoleModal = (member: Member) => {
+    if (!roles || roles.length === 0) {
+      Alert.alert(
+        'Rôles non configurés',
+        'Les rôles de ce foyer n\'ont pas encore été configurés. Veuillez d\'abord accéder à "Gérer les rôles" pour initialiser les rôles.'
+      );
+      return;
+    }
+
+    setSelectedMember(member);
+    setShowRoleModal(true);
+  };
+
+  // Helper to format permissions and importance for display
+  const formatRoleDetails = (role: GroupRole): string => {
+    const lines: string[] = [];
+
+    // Add importance
+    lines.push(`⭐ Importance : ${role.importance}/100`);
+    lines.push('');
+
+    // Add permissions
+    if (!role.permissions) {
+      lines.push('• Aucune permission spécifique');
+    } else {
+      const enabledPermissions = Object.entries(role.permissions)
+        .filter(([key, value]) => {
+          // Only show permissions that are enabled AND exist in PERMISSION_LABELS
+          return value === true && key in PERMISSION_LABELS;
+        })
+        .map(([key]) => PERMISSION_LABELS[key as keyof Permission]);
+
+      if (enabledPermissions.length === 0) {
+        lines.push('• Aucune permission spécifique');
+      } else {
+        enabledPermissions.forEach((p) => lines.push(`• ${p}`));
+      }
+    }
+
+    return lines.join('\n');
+  };
+
+  const changeRole = async (newRoleId: string) => {
+    if (!selectedMember) return;
+
+    if (!newRoleId || newRoleId === 'undefined') {
+      Alert.alert(
+        'Erreur',
+        "Le rôle sélectionné n'est pas valide. Veuillez réessayer ou contacter le support."
+      );
+      return;
+    }
+
+    // Find the selected role to show its details
+    const selectedRole = roles.find((r) => r.id === newRoleId);
+    if (!selectedRole) {
+      Alert.alert('Erreur', 'Rôle introuvable.');
+      return;
+    }
+
+    // If same role, just close modal
+    if (selectedMember.role_id === newRoleId) {
+      setShowRoleModal(false);
+      setSelectedMember(null);
+      return;
+    }
+
+    const roleDetails = formatRoleDetails(selectedRole);
+
+    Alert.alert(
+      'Confirmer le changement de rôle',
+      `Attribuer le rôle "${selectedRole.display_name}" à ${selectedMember.profile.display_name} ?\n\n📋 Détails du rôle :\n${roleDetails}`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          onPress: async () => {
+            try {
+              setChangingRole(true);
+
+              const response = await apiService.put<{
+                success: boolean;
+                message: string;
+              }>(`/api/groups/${groupId}/members/${selectedMember.id}`, {
+                role_id: newRoleId,
+              });
+
+              if (response.success) {
+                Alert.alert('Succès', 'Rôle modifié avec succès.');
+                setShowRoleModal(false);
+                setSelectedMember(null);
+                // Refresh members list
+                await loadMembers();
+              }
+            } catch (error: any) {
+              console.error('Error changing role:', error);
+              Alert.alert(
+                'Erreur',
+                error?.response?.data?.message ||
+                  'Impossible de modifier le rôle.'
+              );
+            } finally {
+              setChangingRole(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const deleteGroup = async () => {
     Alert.alert(
       'Supprimer le foyer',
@@ -209,11 +338,12 @@ export default function HouseholdDetailsScreen() {
 
   useEffect(() => {
     loadMembers();
+    loadRoles();
     // Reset invite modal state when component mounts
     setInviteType('choice');
     setInviteCode(null);
     setPseudoInput('');
-  }, [groupId, loadMembers]);
+  }, [groupId, loadMembers, loadRoles]);
 
   const generateInvitation = () => {
     setInviteType('choice');
@@ -342,7 +472,20 @@ export default function HouseholdDetailsScreen() {
     }
   };
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = (roleName: string, roleId?: string) => {
+    // Try to find the role in the fetched roles first
+    if (roleId && roles.length > 0) {
+      const role = roles.find((r) => r.id === roleId);
+      if (role) return role.display_name;
+    }
+
+    // Fall back to finding by name in fetched roles
+    if (roles.length > 0) {
+      const role = roles.find((r) => r.name === roleName);
+      if (role) return role.display_name;
+    }
+
+    // Fall back to hardcoded labels for backward compatibility
     const labels: Record<string, string> = {
       owner: 'Maître de foyer',
       admin: 'Administrateur',
@@ -350,10 +493,32 @@ export default function HouseholdDetailsScreen() {
       child: 'Enfant',
       guest: 'Invité',
     };
-    return labels[role] || role;
+    return labels[roleName] || roleName;
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = (roleName: string, roleId?: string) => {
+    // Try to find the role in the fetched roles first
+    if (roleId && roles.length > 0) {
+      const role = roles.find((r) => r.id === roleId);
+      if (role) {
+        // Use importance to determine color intensity
+        if (role.importance >= 90) return theme.colors.primary;
+        if (role.importance >= 70) return theme.colors.primaryDark;
+        return theme.colors.textSecondary;
+      }
+    }
+
+    // Fall back to finding by name in fetched roles
+    if (roles.length > 0) {
+      const role = roles.find((r) => r.name === roleName);
+      if (role) {
+        if (role.importance >= 90) return theme.colors.primary;
+        if (role.importance >= 70) return theme.colors.primaryDark;
+        return theme.colors.textSecondary;
+      }
+    }
+
+    // Fall back to hardcoded colors for backward compatibility
     const colors: Record<string, string> = {
       owner: theme.colors.primary,
       admin: theme.colors.primaryDark,
@@ -361,7 +526,7 @@ export default function HouseholdDetailsScreen() {
       child: theme.colors.textTertiary,
       guest: theme.colors.textTertiary,
     };
-    return colors[role] || theme.colors.textSecondary;
+    return colors[roleName] || theme.colors.textSecondary;
   };
 
   const renderMember = (member: Member) => {
@@ -388,16 +553,33 @@ export default function HouseholdDetailsScreen() {
           <View style={styles.memberInfo}>
             <Text style={styles.memberName}>{member.profile.display_name}</Text>
             <Text style={styles.memberPseudo}>@{member.profile.pseudo}</Text>
-            <View
+            <TouchableOpacity
+              onPress={() =>
+                canManageMembers && !isCurrentUser && openRoleModal(member)
+              }
+              disabled={!canManageMembers || isCurrentUser}
               style={[
                 styles.roleBadge,
-                { backgroundColor: getRoleColor(member.role_name) },
+                {
+                  backgroundColor: getRoleColor(
+                    member.role_name,
+                    member.role_id
+                  ),
+                },
               ]}
             >
               <Text style={styles.roleText}>
-                {getRoleLabel(member.role_name)}
+                {getRoleLabel(member.role_name, member.role_id)}
               </Text>
-            </View>
+              {canManageMembers && !isCurrentUser && (
+                <MaterialIcons
+                  name="edit"
+                  size={14}
+                  color="#FFFFFF"
+                  style={{ marginLeft: 4 }}
+                />
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Remove button - only show for owners/admins on other members */}
@@ -443,7 +625,7 @@ export default function HouseholdDetailsScreen() {
     headerTitle: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: '#fff',
+      color: theme.colors.text,
     },
     content: {
       flex: 1,
@@ -481,6 +663,8 @@ export default function HouseholdDetailsScreen() {
     },
     roleBadge: {
       alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 12,
@@ -488,7 +672,7 @@ export default function HouseholdDetailsScreen() {
     },
     roleText: {
       fontSize: 12,
-      color: '#fff',
+      color: '#FFFFFF',
       fontWeight: '500',
     },
     inviteButton: {
@@ -498,13 +682,29 @@ export default function HouseholdDetailsScreen() {
       justifyContent: 'center',
       padding: 16,
       borderRadius: 12,
-      marginBottom: 100,
+      marginBottom: 16,
     },
     inviteIcon: {
       marginRight: 8,
     },
     inviteButtonText: {
-      color: '#fff',
+      color: theme.colors.buttonPrimaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    manageRolesButton: {
+      backgroundColor: theme.colors.card,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 16,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+    },
+    manageRolesButtonText: {
+      color: theme.colors.primary,
       fontSize: 16,
       fontWeight: '600',
     },
@@ -516,11 +716,13 @@ export default function HouseholdDetailsScreen() {
       padding: 20,
     },
     modalContent: {
-      backgroundColor: theme.colors.card,
+      backgroundColor: theme.colors.background,
       borderRadius: 20,
       padding: 24,
       width: '100%',
       maxWidth: 400,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     modalClose: {
       position: 'absolute',
@@ -582,7 +784,7 @@ export default function HouseholdDetailsScreen() {
       borderRadius: 12,
     },
     shareButtonText: {
-      color: '#fff',
+      color: theme.colors.buttonPrimaryText,
       fontSize: 16,
       fontWeight: '600',
       marginLeft: 8,
@@ -647,10 +849,35 @@ export default function HouseholdDetailsScreen() {
       padding: 8,
       marginLeft: 8,
     },
+    roleOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      marginBottom: 12,
+    },
+    roleOptionSelected: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.primaryLight,
+    },
+    roleOptionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    roleOptionDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+    },
     dangerZone: {
       paddingHorizontal: 16,
       marginTop: 8,
-      marginBottom: 20,
+      marginBottom: 40,
+      paddingBottom: 40,
     },
     deleteButton: {
       flexDirection: 'row',
@@ -659,11 +886,9 @@ export default function HouseholdDetailsScreen() {
       gap: 8,
       paddingVertical: 12,
       paddingHorizontal: 16,
-      borderRadius: 8,
-      backgroundColor: '#ff4444',
     },
     deleteButtonText: {
-      color: '#fff',
+      color: theme.colors.error,
       fontSize: 14,
       fontWeight: '600',
     },
@@ -682,7 +907,7 @@ export default function HouseholdDetailsScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{groupName}</Text>
         </View>
@@ -712,19 +937,40 @@ export default function HouseholdDetailsScreen() {
             disabled={inviteLoading}
           >
             {inviteLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.colors.buttonPrimaryText} />
             ) : (
               <>
                 <MaterialIcons
                   name="person-add"
                   size={24}
-                  color="#fff"
+                  color={theme.colors.buttonPrimaryText}
                   style={styles.inviteIcon}
                 />
                 <Text style={styles.inviteButtonText}>Inviter des membres</Text>
               </>
             )}
           </TouchableOpacity>
+
+          {/* Manage Roles Button */}
+          {isOwner && (
+            <TouchableOpacity
+              style={styles.manageRolesButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/household-roles',
+                  params: { groupId, groupName },
+                })
+              }
+            >
+              <MaterialIcons
+                name="shield"
+                size={24}
+                color={theme.colors.primary}
+                style={styles.inviteIcon}
+              />
+              <Text style={styles.manageRolesButtonText}>Gérer les rôles</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Delete Group Button */}
           {isOwner && (
@@ -734,7 +980,11 @@ export default function HouseholdDetailsScreen() {
                 disabled={loading}
                 style={[styles.deleteButton, loading && styles.buttonDisabled]}
               >
-                <MaterialIcons name="delete-outline" size={18} color="#fff" />
+                <MaterialIcons
+                  name="delete-outline"
+                  size={18}
+                  color={theme.colors.error}
+                />
                 <Text style={styles.deleteButtonText}>Supprimer le foyer</Text>
               </TouchableOpacity>
             </View>
@@ -879,8 +1129,8 @@ export default function HouseholdDetailsScreen() {
                         <QRCode
                           value={inviteCode}
                           size={200}
-                          color={theme.isDark ? '#fff' : '#333'}
-                          backgroundColor={theme.isDark ? '#333' : '#fff'}
+                          color={theme.colors.text}
+                          backgroundColor={theme.colors.card}
                         />
                       </View>
 
@@ -888,7 +1138,11 @@ export default function HouseholdDetailsScreen() {
                         onPress={shareInviteCode}
                         style={styles.shareButton}
                       >
-                        <MaterialIcons name="share" size={20} color="#fff" />
+                        <MaterialIcons
+                          name="share"
+                          size={20}
+                          color={theme.colors.buttonPrimaryText}
+                        />
                         <Text style={styles.shareButtonText}>
                           Partager le code
                         </Text>
@@ -939,7 +1193,11 @@ export default function HouseholdDetailsScreen() {
                         onPress={shareInviteCode}
                         style={styles.shareButton}
                       >
-                        <MaterialIcons name="share" size={20} color="#fff" />
+                        <MaterialIcons
+                          name="share"
+                          size={20}
+                          color={theme.colors.buttonPrimaryText}
+                        />
                         <Text style={styles.shareButtonText}>
                           Partager le code
                         </Text>
@@ -994,10 +1252,16 @@ export default function HouseholdDetailsScreen() {
                     ]}
                   >
                     {inviteLoading ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator
+                        color={theme.colors.buttonPrimaryText}
+                      />
                     ) : (
                       <>
-                        <MaterialIcons name="send" size={20} color="#fff" />
+                        <MaterialIcons
+                          name="send"
+                          size={20}
+                          color={theme.colors.buttonPrimaryText}
+                        />
                         <Text style={styles.shareButtonText}>
                           Envoyer l'invitation
                         </Text>
@@ -1016,6 +1280,90 @@ export default function HouseholdDetailsScreen() {
                   </TouchableOpacity>
                 </>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Role Change Modal */}
+        <Modal
+          visible={showRoleModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowRoleModal(false);
+            setSelectedMember(null);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => {
+                  setShowRoleModal(false);
+                  setSelectedMember(null);
+                }}
+              >
+                <Ionicons
+                  name="close"
+                  size={28}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <Text style={styles.modalTitle}>Changer le rôle</Text>
+              {selectedMember && (
+                <Text style={styles.modalDescription}>
+                  Sélectionnez le nouveau rôle pour{' '}
+                  {selectedMember.profile.display_name}
+                </Text>
+              )}
+
+              <ScrollView
+                style={{ maxHeight: 400 }}
+                showsVerticalScrollIndicator={true}
+              >
+                <View style={{ gap: 12, marginTop: 20 }}>
+                  {roles
+                    .filter((role) => role.id && role.id !== 'undefined')
+                    .map((role) => (
+                      <TouchableOpacity
+                        key={role.id}
+                        style={[
+                          styles.roleOption,
+                          selectedMember?.role_id === role.id &&
+                            styles.roleOptionSelected,
+                        ]}
+                        onPress={() => changeRole(role.id)}
+                        disabled={changingRole}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.roleOptionTitle}>
+                            {role.display_name}
+                          </Text>
+                          {role.description && (
+                            <Text style={styles.roleOptionDescription}>
+                              {role.description}
+                            </Text>
+                          )}
+                        </View>
+                        {selectedMember?.role_id === role.id && (
+                          <MaterialIcons
+                            name="check-circle"
+                            size={24}
+                            color={theme.colors.primary}
+                          />
+                        )}
+                        {changingRole &&
+                          selectedMember?.role_id !== role.id && (
+                            <ActivityIndicator
+                              size="small"
+                              color={theme.colors.primary}
+                            />
+                          )}
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>

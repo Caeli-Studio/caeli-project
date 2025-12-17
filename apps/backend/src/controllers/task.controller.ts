@@ -1,3 +1,5 @@
+import { resolveMembershipPermissions } from '../utils/helpers';
+
 import type {
   AssignTaskRequest,
   CreateTaskRequest,
@@ -195,12 +197,23 @@ export async function getTasks(
       (profiles || []).map((p: any) => [p.user_id, p])
     );
 
-    // Enrich tasks with profiles and permissions
+    // Enrich tasks with profiles. Compute role-based permissions once per request.
+
+    const requestPerms = await resolveMembershipPermissions(
+      request.membership as any,
+      request.supabaseClient
+    );
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enrichedTasks: TaskResponse[] = (tasks || []).map((task: any) => ({
-      ...task,
+    const enrichedTasks: TaskResponse[] = (tasks || []).map((task: any) => {
+      const assigned = task.assignments?.some(
+        (a: { membership_id: string }) =>
+          a.membership_id === request.membership?.id
+      );
+
+      // Build enriched assignments with profiles
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      assignments: task.assignments?.map((a: any) => ({
+      const enrichedAssignments = task.assignments?.map((a: any) => ({
         ...a,
         member: a.member
           ? {
@@ -208,22 +221,30 @@ export async function getTasks(
               profile: profileMap.get(a.member.user_id),
             }
           : undefined,
-      })),
-      creator: task.creator
-        ? {
-            ...task.creator,
-            profile: profileMap.get(task.creator.user_id),
-          }
-        : undefined,
-      can_complete: task.assignments?.some(
-        (a: { membership_id: string }) =>
-          a.membership_id === request.membership?.id
-      ),
-      can_transfer: task.assignments?.some(
-        (a: { membership_id: string }) =>
-          a.membership_id === request.membership?.id
-      ),
-    }));
+      }));
+
+      // Extract assigned members for easier access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const assignedMembers =
+        enrichedAssignments?.map((a: any) => a.member).filter(Boolean) || [];
+
+      return {
+        ...task,
+        assignments: enrichedAssignments,
+        assigned_members: assignedMembers,
+        creator: task.creator
+          ? {
+              ...task.creator,
+              profile: profileMap.get(
+                task.creator_user_id || task.creator.user_id
+              ),
+            }
+          : undefined,
+        can_complete: assigned,
+        can_transfer: assigned,
+        can_delete: requestPerms.can_delete_tasks || assigned,
+      } as TaskResponse;
+    });
 
     return reply.send({
       success: true,
@@ -291,18 +312,26 @@ export async function getTask(
     );
 
     // Enrich task with profiles
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enrichedAssignments = task.assignments?.map((a: any) => ({
+      ...a,
+      member: a.member
+        ? {
+            ...a.member,
+            profile: profileMap.get(a.member.user_id),
+          }
+        : undefined,
+    }));
+
+    // Extract assigned members for easier access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const assignedMembers =
+      enrichedAssignments?.map((a: any) => a.member).filter(Boolean) || [];
+
     const enrichedTask = {
       ...task,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      assignments: task.assignments?.map((a: any) => ({
-        ...a,
-        member: a.member
-          ? {
-              ...a.member,
-              profile: profileMap.get(a.member.user_id),
-            }
-          : undefined,
-      })),
+      assignments: enrichedAssignments,
+      assigned_members: assignedMembers,
       creator: task.creator
         ? {
             ...task.creator,
@@ -311,16 +340,21 @@ export async function getTask(
         : undefined,
     };
 
+    const requestPerms = await resolveMembershipPermissions(
+      request.membership as any,
+      request.supabaseClient
+    );
+
+    const assigned = task.assignments?.some(
+      (a: { membership_id: string }) =>
+        a.membership_id === request.membership?.id
+    );
+
     const response: TaskResponse = {
       ...enrichedTask,
-      can_complete: task.assignments?.some(
-        (a: { membership_id: string }) =>
-          a.membership_id === request.membership?.id
-      ),
-      can_transfer: task.assignments?.some(
-        (a: { membership_id: string }) =>
-          a.membership_id === request.membership?.id
-      ),
+      can_complete: assigned,
+      can_transfer: assigned,
+      can_delete: requestPerms.can_delete_tasks || assigned,
     };
 
     return reply.send({
@@ -506,15 +540,35 @@ export async function completeTask(
       });
     }
 
-    // ✅ UPDATE sans filtre dangereux
+    // Check if user is assigned to this task
+    const { data: assignment } = await request.supabaseClient
+      .from('task_assignments')
+      .select('membership_id')
+      .eq('task_id', request.params.task_id)
+      .eq('membership_id', membershipId)
+      .single();
+
+    const isAssigned = !!assignment;
+
+    // User must be assigned to complete the task
+    if (!isAssigned) {
+      return reply.status(403).send({
+        success: false,
+        error: 'Not assigned',
+        message: 'You must be assigned to this task to complete it',
+      });
+    }
+
+    // Complete ALL assignments for this task (not just user's assignment)
+    // When one person completes the task, it's done for everyone
     const { data, error } = await request.supabaseClient
       .from('task_assignments')
       .update({ completed_at: new Date().toISOString() })
       .eq('task_id', request.params.task_id)
-      .eq('membership_id', membershipId)
+      .is('completed_at', null)
       .select();
 
-    // ✅ Vérification CRITIQUE
+    // Vérification CRITIQUE
     if (error || !data || data.length === 0) {
       request.log.error({ error, membershipId }, 'No assignment updated');
       return reply.status(400).send({

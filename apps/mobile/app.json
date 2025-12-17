@@ -35,6 +35,10 @@
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
+      ],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -67,12 +71,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "owner": "ciancode",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "83849819-39e6-49fe-953d-19d3ec6926bd"
+        "projectId": "8624eea8-9885-41c2-91ee-f927ab125717"
       }
-    },
-    "owner": "noah_rogier"
+    }
   }
 }

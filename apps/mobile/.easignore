@@ -1,0 +1,15 @@
+# Exclude monorepo workspace files
+pnpm-workspace.yaml
+pnpm-lock.yaml
+
+# Exclude other apps
+apps/backend
+
+# Exclude root configs that trigger yarn detection
+turbo.json
+
+# Exclude unnecessary files
+node_modules
+.git
+coverage
+*.log

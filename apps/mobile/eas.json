@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 16.28.0",
+    "appVersionSource": "remote",
+    "requireCommit": false
+  },
+  "build": {
+    "base": {
+      "node": "22.12.0",
+      "pnpm": "10.17.0",
+      "cache": {
+        "disabled": true
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://10.0.2.2:3000"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://caelibackend-production.up.railway.app"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://caelibackend-production.up.railway.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

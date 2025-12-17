@@ -57,10 +57,10 @@ const getDevApiUrl = () => {
   return `http://${LOCAL_IP_ADDRESS}:${BACKEND_PORT}`;
 };
 
-// Backend API URL
-export const API_BASE_URL = __DEV__
-  ? getDevApiUrl()
-  : 'https://your-production-api.com'; // Production
+// Backend API URL - use environment variable first, then fallback
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  (__DEV__ ? getDevApiUrl() : 'https://caelibackend-production.up.railway.app');
 
 export const API_ENDPOINTS = {
   // Auth endpoints
